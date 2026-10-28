@@ -43,6 +43,21 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Step 3: the Python package conforms to the contract (Claude Opus 5.5, Claude Code, with one delegated agent)
+
+**What the maintainer asked for.** "Cp, and then write some code", then "Yes" to fixing a slower attach before committing.
+
+**What the delegated agent did** (contract Appendix A4–A14; about +930/−300 lines across `store.py`, `shared.py`, `cache.py`, tests and docs):
+
+- **Existing keys (C15):** a torn file is replaced (`shm_torn_replaced`), a whole matching one is touched and counts nothing, and a different dtype, shape or order raises `KeyCollision`, leaving the file and its mtime alone, counting `shm_key_collision` and logging at error level. `verify_republish` compares in 1 MiB chunks with padding masked out. `cache.py` now lets `KeyCollision` through.
+- **Never-raise bugs, each reproduced against the old source before the fix:** a garbled header raised `tokenize.TokenError` out of `attach`; an object dtype raised `ValueError` and left a `.tmp` file; a missing `os.statvfs` raised `AttributeError`; `inf` in a setting raised `OverflowError`.
+- **Also:** headers up to 1 MiB, `fsync` off by default (`F_FULLFSYNC` on macOS, measured at 3.98 ms against 0.33 ms for plain `fsync` on a 1 MiB write), the reaper by path shape plus the `.tmp` sweep, `.usage.json` validity, the strict number grammar, `.policy.json` over the environment, and a `shutil.disk_usage` fallback where `statvfs` is missing (Windows).
+- 216 lines of new tests. The suite went from 375 passed and 87 xfailed to 548 passed and none xfailed; the generator still reproduces every fixture.
+
+**A cost caught by the AI's review, then fixed by the AI.** The agent's mmap attach opened each file twice (prefix check, then `np.load(path, mmap_mode=...)`), costing about 16 µs on the hot path that `cache.py` exists to keep cheap (55 to 71 µs median for a 400 kB segment). The AI mapped through the handle already open (`read_magic`, the public v1/v2 header readers, `np.memmap` on the file object), keeping `np.load` for version 3 headers and empty arrays. The median is now 31 µs, faster than before step 3. Checked: read-only, Fortran order and big-endian preserved, and the mapping survives an unlink.
+
+**Choices the contract left open, made by the agent and listed for the maintainer:** a comparison that itself fails is a failed publish, not a collision; only top-level duplicate keys invalidate `.policy.json`; a BOM makes it invalid; a JSON number that overflows is left out.
+
 ### 2026-10-28 — The key fixes, padding in `verify_republish`, ruff clean (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked for.** "Ensure contract is in pycommonkit. Annotate file to pass ruff. Fix the keys. Special case readback by copy", after the contract agent left a false-collision case unresolved.

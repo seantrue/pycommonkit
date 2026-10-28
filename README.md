@@ -31,10 +31,12 @@ See `docs/STATUS.md`. Nothing is published to PyPI or crates.io yet.
 * `KeyScheme` — the addressing vocabulary for one *domain*. A scheme fixes the
   domain, a version, the legal forms and the legal variants, and turns
   `(digest, variant, form)` into both a key and a relative path.
-* `shared_store()` — the ONE store per host that every user shares. Its root, byte budget, TTL
-  and free-space floor come only from `COMMONKIT_STORE_*` environment variables (defaults on macOS:
+* `shared_store()` — the ONE store per host that every user shares. Its byte budget, TTL,
+  free-space floor, fsync and republish verification come only from the tree's `.policy.json`
+  (which wins), then `COMMONKIT_STORE_*` environment variables, then the defaults (macOS:
   `~/Library/Caches/commonkit/store`, 2 GB, 900 s, 8 GB free), because the reaping process applies
-  its own policy to the whole tree. A caller chooses only `mode` and the smallest array worth storing.
+  its own policy to the whole tree; the root comes from the environment or the default. A caller
+  chooses only `mode` and the smallest array worth storing.
 * `TieredPixelCache` — an in-process L1 memo in front of a store, so a loop
   that looks up the same digest repeatedly pays one attach rather than one per
   call.

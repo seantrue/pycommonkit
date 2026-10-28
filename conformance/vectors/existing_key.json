@@ -67,8 +67,7 @@
     "mtime": "new",
     "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
    },
-   "note": "damage from outside the contract",
-   "python": "step3"
+   "note": "damage from outside the contract"
   },
   {
    "id": "torn_header",
@@ -98,8 +97,7 @@
     "file_after": "new",
     "mtime": "new",
     "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "torn_empty",
@@ -129,8 +127,7 @@
     "file_after": "new",
     "mtime": "new",
     "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "match",
@@ -156,8 +153,7 @@
     "file_after": "unchanged",
     "mtime": "refreshed"
    },
-   "note": "a republish writes nothing and refreshes mtime",
-   "python": "step3"
+   "note": "a republish writes nothing and refreshes mtime"
   },
   {
    "id": "match_verified",
@@ -182,8 +178,7 @@
     "counters": {},
     "file_after": "unchanged",
     "mtime": "refreshed"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "match_trailing",
@@ -209,8 +204,7 @@
     "file_after": "unchanged",
     "mtime": "refreshed"
    },
-   "note": "trailing bytes are not part of the payload compared",
-   "python": "step3"
+   "note": "trailing bytes are not part of the payload compared"
   },
   {
    "id": "same_header_other_bytes",
@@ -236,8 +230,7 @@
     "file_after": "unchanged",
     "mtime": "refreshed"
    },
-   "note": "verify_republish off: a same-header collision goes unseen",
-   "python": "step3"
+   "note": "verify_republish off: a same-header collision goes unseen"
   },
   {
    "id": "same_header_other_bytes_verified",
@@ -264,8 +257,7 @@
     },
     "file_after": "unchanged",
     "mtime": "unchanged"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "other_dtype",
@@ -292,8 +284,7 @@
     },
     "file_after": "unchanged",
     "mtime": "unchanged"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "other_byteorder",
@@ -320,8 +311,7 @@
     },
     "file_after": "unchanged",
     "mtime": "unchanged"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "other_shape",
@@ -348,8 +338,7 @@
     },
     "file_after": "unchanged",
     "mtime": "unchanged"
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "other_order",
@@ -377,8 +366,7 @@
     "file_after": "unchanged",
     "mtime": "unchanged"
    },
-   "note": "same values in another memory order is a different file, so a collision",
-   "python": "step3"
+   "note": "same values in another memory order is a different file, so a collision"
   },
   {
    "id": "padded_padding_differs_verified",
@@ -403,8 +391,7 @@
     "file_after": "unchanged",
     "mtime": "refreshed"
    },
-   "note": "only padding bytes differ (as after a copying read): named fields are compared",
-   "python": "step3"
+   "note": "only padding bytes differ (as after a copying read): named fields are compared"
   },
   {
    "id": "padded_field_differs_verified",
@@ -431,8 +418,7 @@
     "file_after": "unchanged",
     "mtime": "unchanged"
    },
-   "note": "a named field differs: a collision whatever the padding holds",
-   "python": "step3"
+   "note": "a named field differs: a collision whatever the padding holds"
   }
  ]
 }

@@ -11,9 +11,9 @@ paying an attach per call.
 from .cache import TieredPixelCache
 from .keys import KeyScheme, parse, register, relpath, scheme_for
 from .shared import shared_store
-from .store import SharedArrayStore
+from .store import KeyCollision, SharedArrayStore
 
 __all__ = [
-    "KeyScheme", "SharedArrayStore", "TieredPixelCache",
+    "KeyCollision", "KeyScheme", "SharedArrayStore", "TieredPixelCache",
     "parse", "register", "relpath", "scheme_for", "shared_store",
 ]

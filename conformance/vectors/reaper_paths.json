@@ -29,48 +29,42 @@
    "kind": "file",
    "age_s": 7200,
    "expect": "kept",
-   "note": "C6(a): the shard directory must be the digest's first two characters",
-   "python": "step3"
+   "note": "C6(a): the shard directory must be the digest's first two characters"
   },
   {
    "id": "too_shallow",
    "path": "pil/abababababababababababababababab.o0.npy",
    "kind": "file",
    "age_s": 7200,
-   "expect": "kept",
-   "python": "step3"
+   "expect": "kept"
   },
   {
    "id": "too_deep",
    "path": "x/pil/ab/abababababababababababababababab.o0.npy",
    "kind": "file",
    "age_s": 7200,
-   "expect": "kept",
-   "python": "step3"
+   "expect": "kept"
   },
   {
    "id": "root_npy",
    "path": "notes.npy",
    "kind": "file",
    "age_s": 7200,
-   "expect": "kept",
-   "python": "step3"
+   "expect": "kept"
   },
   {
    "id": "no_variant",
    "path": "pil/ab/abababababababababababababababab.npy",
    "kind": "file",
    "age_s": 7200,
-   "expect": "kept",
-   "python": "step3"
+   "expect": "kept"
   },
   {
    "id": "upper_digest",
    "path": "pil/ab/ABABABABABABABABABABABABABABABAB.o0.npy",
    "kind": "file",
    "age_s": 7200,
-   "expect": "kept",
-   "python": "step3"
+   "expect": "kept"
   },
   {
    "id": "dot_dir",
@@ -78,8 +72,7 @@
    "kind": "file",
    "age_s": 7200,
    "expect": "kept",
-   "note": "reserved dot-names are never reaped (contract 4, 9.4)",
-   "python": "step3"
+   "note": "reserved dot-names are never reaped (contract 4, 9.4)"
   },
   {
    "id": "symlink",
@@ -95,8 +88,7 @@
    "kind": "file",
    "age_s": 7200,
    "expect": "swept",
-   "note": "C6(b): an orphaned temporary file over an hour old",
-   "python": "step3"
+   "note": "C6(b): an orphaned temporary file over an hour old"
   },
   {
    "id": "tmp_dot_old",
@@ -104,8 +96,7 @@
    "kind": "file",
    "age_s": 7200,
    "expect": "swept",
-   "note": "PlumCraft's temporary-file spelling is swept too",
-   "python": "step3"
+   "note": "PlumCraft's temporary-file spelling is swept too"
   },
   {
    "id": "tmp_young",

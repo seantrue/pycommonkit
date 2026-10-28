@@ -1,14 +1,12 @@
 """The shared conformance vectors (``conformance/vectors/``), judged by Python.
 
 The vectors state the CONTRACT's outcome (``docs/contract.md``). Python is the reference
-implementation, but in step 2 of the Rust-crate plan the contract runs ahead of it in a
-few places (C6, C7, C15, C17 and the new counters). Those vectors carry
-``"python": "step3"`` and are ``xfail(strict=True)`` here: each must fail today, and step 3
-turns them green by changing Python, at which point the marker comes off in
-``conformance/generate.py``.
+implementation. Where it does not yet conform, a vector carries ``"python": "step3"`` and is
+``xfail(strict=True)`` here: it must fail until Python changes, at which point the marker
+comes off in ``conformance/generate.py``. Since step 3 of the Rust-crate plan (pycommonkit
+0.1.0, contract Appendix A) no vector carries it; the mechanism stays for the next change.
 
-What step 3 must provide for this file to judge it (the names are this file's, chosen so
-the vectors can be checked without a new public API beyond what the contract implies):
+Python's side of the names the vectors use:
 
 * ``SharedArrayStore(..., verify_republish=True)`` and the attributes ``store.fsync`` and
   ``store.verify_republish``, set by ``shared_store`` from ``.policy.json`` and the
@@ -391,3 +389,10 @@ def test_vectors_are_reproducible_and_small():
     Here only the size rule is checked, so the suite stays read-only."""
     total = sum(p.stat().st_size for p in VEC.rglob("*") if p.is_file())
     assert total < 512 * 1024
+
+
+@pytest.mark.parametrize("v", params(HEADERS["vectors"]))
+def test_publish_computes_the_header_length_numpy_writes(v):
+    """The publisher's header-limit gate (contract 5.5) predicts HLEN without writing."""
+    from commonkit.store import _header_len
+    assert _header_len(GEN.make_array(v["array"])) == v["header_len"]

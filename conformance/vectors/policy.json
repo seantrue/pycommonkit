@@ -23,8 +23,7 @@
    },
    "expect": {
     "ttl_s": 200.0
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "file_only",
@@ -34,8 +33,7 @@
    "env": {},
    "expect": {
     "ttl_s": 200.0
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "env_fills",
@@ -49,8 +47,7 @@
     "max_bytes": 7516192768,
     "min_free_bytes": 1073741824
    },
-   "note": "the environment fills what the file leaves out",
-   "python": "step3"
+   "note": "the environment fills what the file leaves out"
   },
   {
    "id": "default_fills",
@@ -61,8 +58,7 @@
    "expect": {
     "max_bytes": 7516192768,
     "ttl_s": 900.0
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "thresher",
@@ -75,8 +71,7 @@
     "min_free_bytes": 1073741824,
     "ttl_s": 604800.0
    },
-   "note": "a Finder-launched process sees the tree's policy without ~/.bashrc",
-   "python": "step3"
+   "note": "a Finder-launched process sees the tree's policy without ~/.bashrc"
   },
   {
    "id": "string_value",
@@ -89,8 +84,7 @@
    "expect": {
     "ttl_s": 300.0
    },
-   "note": "a string is parsed as an environment value is",
-   "python": "step3"
+   "note": "a string is parsed as an environment value is"
   },
   {
    "id": "float_bytes",
@@ -100,8 +94,7 @@
    "env": {},
    "expect": {
     "max_array_bytes": 1000
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "bad_value",
@@ -225,8 +218,7 @@
     "ttl_s": 200.0,
     "root": "{root}"
    },
-   "note": "the root is how the file is found, so the file cannot move it",
-   "python": "step3"
+   "note": "the root is how the file is found, so the file cannot move it"
   },
   {
    "id": "lower_case_key",
@@ -249,8 +241,7 @@
    "env": {},
    "expect": {
     "ttl_s": 200.0
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "prefixed_key",
@@ -273,8 +264,7 @@
    "env": {},
    "expect": {
     "fsync": true
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "fsync_file_off",
@@ -287,8 +277,7 @@
    "expect": {
     "fsync": false
    },
-   "note": "file over environment holds for flags too",
-   "python": "step3"
+   "note": "file over environment holds for flags too"
   },
   {
    "id": "fsync_string",
@@ -298,8 +287,7 @@
    "env": {},
    "expect": {
     "fsync": true
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "fsync_number",
@@ -312,8 +300,7 @@
    "expect": {
     "fsync": false
    },
-   "note": "a number is not a flag: left out, the environment says off",
-   "python": "step3"
+   "note": "a number is not a flag: left out, the environment says off"
   },
   {
    "id": "verify_true",
@@ -323,8 +310,7 @@
    "env": {},
    "expect": {
     "verify_republish": true
-   },
-   "python": "step3"
+   }
   },
   {
    "id": "oversize",

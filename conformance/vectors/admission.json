@@ -361,8 +361,7 @@
      "shm_declined_dtype": 1
     }
    },
-   "note": "C6(c): an object array is declined; Python raises ValueError from np.save today",
-   "python": "step3"
+   "note": "C6(c): an object array is declined; before pycommonkit 0.1.0 Python raised ValueError from np.save"
   },
   {
    "id": "img_object",
