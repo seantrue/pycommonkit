@@ -207,7 +207,7 @@ fn random_header_text_never_panics() {
             text.push_str("{'descr': ");
         }
         for _ in 0..rng.below(24) {
-            text.push_str(rng.pick(tokens));
+            text.push_str(rng.pick::<&str>(tokens));
         }
         let version = *rng.pick(&[1u8, 2, 3]);
         let mut bytes = npy::MAGIC.to_vec();
@@ -284,7 +284,7 @@ fn written_headers_read_back() {
         "[('π', '|u1')]",
     ];
     for _ in 0..5_000 {
-        let descr = Descr::parse(rng.pick(&descrs)).unwrap();
+        let descr = Descr::parse(rng.pick::<&str>(&descrs)).unwrap();
         let ndim = rng.below(9);
         let shape: Vec<u64> = (0..ndim)
             .map(|_| match rng.below(5) {
@@ -351,7 +351,7 @@ fn random_keys_never_panic_and_agree_with_the_grammar() {
     for _ in 0..50_000 {
         let mut key = String::new();
         for _ in 0..rng.below(12) {
-            key.push_str(rng.pick(&pieces));
+            key.push_str(rng.pick::<&str>(&pieces));
         }
         let ok = Key::parse(&key).is_ok();
         assert_eq!(ok, grammar.is_match(&key), "{key:?}");

@@ -43,6 +43,19 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — crates.io prep: package contents, a crate README, the MSRV checked, two CI defects found (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked for.** "Prep for crates.io", after the public-repository prep; then CPM. The maintainer's attempt to publish before committing was refused by cargo, and the AI advised against `--allow-dirty` so that 0.1.0 matches a commit that passed CI.
+
+**What the AI did.** `exclude = ["tests/"]` and `readme` in `rust/commonkit/Cargo.toml` (~5 LOC); `rust/commonkit/README.md` (~75 LOC), compiled as a doctest from `lib.rs` (~6 LOC) so its example tracks the API; Rust 1.95 installed and the crate built and tested on it; a CI `msrv` job, a packaged-crate build, a package-contents check and a docs build with `-D warnings` (~31 LOC in `ci.yml`); a `STATUS.md` section. Checked: 154 tests pass on stable (workspace), 146 on 1.95 (`commonkit` alone); clippy both feature sets, fmt, `cargo doc` both ways, actionlint 1.7.12; `cargo package` builds the 18 packaged files alone and `cargo publish --dry-run` reaches the upload.
+
+**Defects found, in earlier AI-written work.**
+
+- **A CI check that never ran (step 4).** actionlint (SC2251) showed that in `uv build leaves rust/ out`, `! tar … | grep -q '/rust/'` was not the last line of the script, and bash `-e` ignores a negated command, so only the wheel check could fail the step. Rewritten as `if …; then exit 1; fi`. Neither artefact contains `rust/` today, so nothing slipped through.
+- **The stated MSRV was false for the tests.** `rust-version = "1.95"` had never been checked. The library built on 1.95, but `tests/hostile_input.rs` did not: 1.95 infers `T = str` for `pick` from the expected argument type. The AI's first fix, `*rng.pick(…)`, built on 1.95 but failed clippy on stable (`explicit_auto_deref`); `pick::<&str>(…)` passes both.
+- **A doc link to a private item.** `Store::reap`'s docs linked `STALE_LOCK_S`, which is not re-exported, so `cargo doc -D warnings` (as docs.rs is strict about) failed; the text gives the value now.
+- **The plan's exclusion list was wrong.** `STATUS.md` said to exclude `tests/vectors_*`, `tests/license.rs` and `common/`; three test files outside that list (`store.rs`, `shared.rs`, `hostile_input.rs`) include `common/`, so it would have shipped tests that cannot compile. Caught by reading the `mod common` users before editing.
+
 ### 2026-10-28 — Preparing to make the repository public: a secrets scan, private names generalised, `SECURITY.md` (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked for.** "Scan the current code and repo for secrets and prep for making the repo public"; chose gitleaks when asked which scanner; then, on the findings: generalise the viewer app, keep PlumCraft, call the original application "the non-public app", reword the production-host line to "the deployment host", keep the email, add `SECURITY.md`, switch the banner back to the raw-GitHub URL, and update the GitHub settings.

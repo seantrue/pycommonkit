@@ -35,6 +35,12 @@
     clippy::unreachable
 )]
 
+// Compiles the README's example under `cargo test`, so the crates.io page can't drift from the
+// API.
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 /// The on-disk contract version this crate implements (contract §1.1).
 pub const CONTRACT_VERSION: u32 = 1;
 
