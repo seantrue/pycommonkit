@@ -14,6 +14,32 @@ requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
 ]
+keywords = ["numpy", "npy", "mmap", "shared-memory", "cache"]
+# No License :: classifier: PEP 639's `license` expression replaces it. Linux and macOS only:
+# Windows is supported in the contract (§12) but has no Python default root or CI yet.
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Filesystems",
+]
+
+[project.urls]
+Homepage = "https://github.com/seantrue/pycommonkit"
+Repository = "https://github.com/seantrue/pycommonkit"
+Issues = "https://github.com/seantrue/pycommonkit/issues"
+Contract = "https://github.com/seantrue/pycommonkit/blob/main/docs/contract.md"
+"Rust crate" = "https://crates.io/crates/commonkit"
 
 [project.optional-dependencies]
 dev = [

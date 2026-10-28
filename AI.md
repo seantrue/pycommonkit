@@ -43,11 +43,17 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — PyPI metadata for pycommonkit: links, classifiers, keywords (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked for.** "Walk me through the pypi publish", then yes to the first step, the `pyproject.toml` polish; then CPM.
+
+**What the AI did.** `pyproject.toml` (~26 LOC): `[project.urls]` (homepage, repository, issues, the contract, the Rust crate), keywords matching the crate's, and 14 classifiers, all checked against `trove-classifiers` (valid, none deprecated). No `License ::` classifier, since PEP 639's `license` expression replaces it. Python 3.11–3.14 are listed because the suite passed on each: CI covers 3.11 and 3.13, and the AI ran 3.12 and 3.14 locally (566 passed each, conformance excluded). Windows is left out with a comment: the contract supports it, but the Python package has no Windows default root and no CI there. "4 - Beta" is the AI's choice, flagged for the maintainer. Checked: the rebuilt wheel's METADATA carries every field; `twine check` passes on wheel and sdist; 629 tests pass; ruff clean; `uv.lock` unchanged. The wheel holds only the six modules and `LICENSE`, the sdist only `src/`, `pyproject.toml`, `README.md` and `LICENSE`.
+
 ### 2026-10-28 — commonkit 0.1.0 published to crates.io (the maintainer; Claude Opus 5.5, Claude Code, for the tag and records)
 
 **The release was the maintainer's.** They made the crates.io account and token, and ran `cargo publish -p commonkit` from a clean `main` at `cdffb50`, after PR #10 had passed CI. Their first attempt, before PR #10 was committed, was refused by cargo for uncommitted changes; the AI advised committing through CI rather than `--allow-dirty`.
 
-**What the AI did.** Made `msrv` a required check on `main` (at the maintainer's request); confirmed the published crate through the crates.io API (0.1.0, MIT, `rust_version` 1.95, the repository link); tagged `cdffb50` as `commonkit-v0.1.0` (annotated) and pushed the tag; updated `STATUS.md` (~5 LOC). The docs.rs build had not appeared when this was written (its pages still answered "no such crate"), so the docs.rs result is not recorded here.
+**What the AI did.** Made `msrv` a required check on `main` (at the maintainer's request); confirmed the published crate through the crates.io API (0.1.0, MIT, `rust_version` 1.95, the repository link); tagged `cdffb50` as `commonkit-v0.1.0` (annotated) and pushed the tag; updated `STATUS.md` (~5 LOC). The docs.rs build had not appeared when this was written (its pages still answered "no such crate"). It appeared minutes later: `status.json` reported `doc_status: true` for 0.1.0, and the crate's docs page loaded (checked by the AI after PR #11 merged).
 
 ### 2026-10-28 — crates.io prep: package contents, a crate README, the MSRV checked, two CI defects found (Claude Opus 5.5, Claude Code)
 
