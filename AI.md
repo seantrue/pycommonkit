@@ -55,6 +55,7 @@ inside a non-public application first.
 - The first banner crop used `sips --cropOffset`, which was ignored and produced the centre band; seen on viewing the output and redone with ImageMagick.
 - The first pandoc preview added a title heading GitHub would not show; re-rendered with `pagetitle`.
 - The first NAIP tile (York, Nebraska) was a town edge with no pivots: wrong target, replaced.
+- Shipped defect, caught by the maintainer after merge (PR #7): the banner was linked by an absolute raw-GitHub URL, but the repository is private, and raw.githubusercontent.com returns 404 to the unauthenticated fetch GitHub uses to render README images, so the banner did not show. The AI had never checked the repo's visibility, and the PyPI reason for the URL did not apply either: pycommonkit is not on PyPI. Fixed by linking `docs/images/commons-banner.jpg` relatively, which GitHub renders for private and public repositories. If the package is published to PyPI while the repo is private, the banner will not render there.
 - The AI tried to query the Flickr API with a key scraped from Flickr's page; the session's permission classifier blocked it, and the search used public pages only.
 - "The impressionist" was read as all the renderings (there is no file of that name) and all are put under MIT. The maintainer then said the renderings were made with The Virtual Impressionist (www.virtimp.com), which `icons/README.md` now credits.
 
