@@ -10,7 +10,7 @@ The build backend is `uv_build`; dev tools are in the `dev` extra.
 uv run --extra dev pytest -q                                   # full suite (<1s)
 uv run --extra dev pytest tests/test_store.py::test_publish_then_attach_returns_the_same_samples
 uv run --extra dev ruff check .                                # line-length 100
-uv build                                                       # wheel + sdist (pycommonkit)
+uv build                                                       # wheel + sdist (pyuncommonkit)
 uv run python conformance/generate.py && git diff --exit-code conformance/   # vectors reproduce
 ```
 
@@ -22,7 +22,7 @@ venvs. Don't use 3.12+ features, and don't add dependencies beyond numpy.
 
 ## What this is
 
-**pycommonkit** (installed as `pycommonkit`, imported as `commonkit`), lifted from
+**pycommonkit** (installed as `pyuncommonkit`, imported as `commonkit`), lifted from
 `seantrue/commonkit` with a fresh history on 2026-10-27. Read `docs/STATUS.md`, then
 `docs/contract.md` (the on-disk contract, version 1: the authority) and
 `docs/rust-crate-plan.md` (decisions C1–C17, all the maintainer's, and the step plan).

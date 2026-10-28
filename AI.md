@@ -43,6 +43,14 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — The PyPI distribution renamed to `pyuncommonkit` after PyPI refused `pycommonkit` (Claude Opus 5.5, Claude Code)
+
+**What happened.** The maintainer's upload of `pycommonkit` 0.1.0 to PyPI returned 400 Bad Request with no reason shown. The AI asked for a `--verbose` run; the maintainer then reported the cause: the name was too close to `commonkit`, an unrelated existing project. TestPyPI had accepted the same files the day's earlier trial, because TestPyPI has no `commonkit`. The AI's walkthrough had presented the TestPyPI run as the trial that catches problems; it cannot catch this one. The plan (2026-10-27) had checked only that `pycommonkit` was unregistered, not whether PyPI would accept it.
+
+**What the maintainer decided.** "let's try pyuncommon". The AI checked and reported that PyPI has an `uncommon`, so `pyuncommon` would likely be refused the same way, and offered `uncommonkit`, `pyuncommonkit` (both free, with free stems) or `pyuncommon` anyway. The maintainer chose `pyuncommonkit`.
+
+**What the AI did.** Renamed the distribution only where it names what is installed or depended on: `pyproject.toml`, `uv.lock` (regenerated), the README's and `CLAUDE.md`'s "installed as", `SECURITY.md`, `STATUS.md`, and the plan (a dated amendment under the original naming decision, and the consumer dependency lines of section 9.3) (~23 LOC, lock excluded). The repository and project name `pycommonkit`, `import commonkit`, the crate, the contract's "since pycommonkit 0.1.0" labels, the vectors and this file's history are unchanged. Checked: the build makes `pyuncommonkit-0.1.0` wheel and sdist, the wheel holds `commonkit/` and says `Name: pyuncommonkit`, `twine check` passes, 629 tests pass, ruff clean, `uv lock --check` consistent.
+
 ### 2026-10-28 — PyPI metadata for pycommonkit: links, classifiers, keywords (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked for.** "Walk me through the pypi publish", then yes to the first step, the `pyproject.toml` polish; then CPM.

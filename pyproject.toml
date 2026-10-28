@@ -1,5 +1,5 @@
 [project]
-name = "pycommonkit"
+name = "pyuncommonkit"
 version = "0.1.0"
 description = "Named shared-memory segments for numpy arrays: publish once, attach from any process."
 readme = "README.md"
@@ -52,8 +52,9 @@ requires = ["uv_build>=0.11.21,<0.12.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-# Published as pycommonkit (PyPI `commonkit` belongs to an unrelated project), imported as
-# commonkit, so no consumer's code changes; only its dependency line does.
+# Published as pyuncommonkit, imported as commonkit, so no consumer's code changes; only its
+# dependency line does. PyPI `commonkit` belongs to an unrelated project, and PyPI refused
+# `pycommonkit` as too similar to it (2026-10-28).
 module-name = "commonkit"
 
 [tool.ruff]
