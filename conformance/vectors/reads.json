@@ -1,0 +1,393 @@
+{
+ "contract": 1,
+ "category": "reads",
+ "about": "Attach outcomes for files placed at a key's path, in both attach modes (mmap and read)",
+ "scheme": {
+  "domain": "cvread",
+  "version": "v1",
+  "forms": [
+   "arr"
+  ],
+  "variants": [
+   "x0"
+  ]
+ },
+ "vectors": [
+  {
+   "id": "absent",
+   "key": "cvread:v1:arr:e5671794bf87ebab2a0d5e0ded530e68:x0",
+   "file": null,
+   "expect": {
+    "outcome": "miss",
+    "counters": {
+     "shm_miss": 1
+    }
+   },
+   "note": "no file at the key's path"
+  },
+  {
+   "id": "whole",
+   "key": "cvread:v1:arr:356c9ee60e9da05301adc3bd96f6b383:x0",
+   "file": "files/whole.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": "'<i4'",
+    "shape": [
+     10
+    ],
+    "fortran_order": false,
+    "payload_sha256": "76def75856e5d73ece011b058b02d205991a48f0fcf8b7ddcc24005d57759b23"
+   },
+   "note": "a numpy-written file"
+  },
+  {
+   "id": "trailing_5",
+   "key": "cvread:v1:arr:dc7fdbeecccea9ad43440ee736107de4:x0",
+   "file": "files/trailing_5.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": "'<i4'",
+    "shape": [
+     10
+    ],
+    "fortran_order": false,
+    "payload_sha256": "76def75856e5d73ece011b058b02d205991a48f0fcf8b7ddcc24005d57759b23"
+   },
+   "note": "trailing bytes after the payload are ignored"
+  },
+  {
+   "id": "trailing_copy",
+   "key": "cvread:v1:arr:7d70bb40fd1b792deb2956476f427556:x0",
+   "file": "files/trailing_copy.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": "'<i4'",
+    "shape": [
+     10
+    ],
+    "fortran_order": false,
+    "payload_sha256": "76def75856e5d73ece011b058b02d205991a48f0fcf8b7ddcc24005d57759b23"
+   },
+   "note": "a whole second copy after the payload"
+  },
+  {
+   "id": "short_1",
+   "key": "cvread:v1:arr:0c0989c9c414bde7e66e91da6d8d28ba:x0",
+   "file": "files/short_1.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "payload one byte short"
+  },
+  {
+   "id": "header_only",
+   "key": "cvread:v1:arr:1b69cfcf3912035bab3606a5ef03190f:x0",
+   "file": "files/header_only.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "the header and no payload"
+  },
+  {
+   "id": "empty",
+   "key": "cvread:v1:arr:a2e4822a98337283e39f7b60acf85ec9:x0",
+   "file": "files/empty.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "a zero-length file"
+  },
+  {
+   "id": "magic_only",
+   "key": "cvread:v1:arr:5b3d97f6bcad27aadd5d052fe45f55ca:x0",
+   "file": "files/magic_only.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "six bytes of magic"
+  },
+  {
+   "id": "prefix_only",
+   "key": "cvread:v1:arr:fb6f56f241bfb5b5351aa9e96b0f1395:x0",
+   "file": "files/prefix_only.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "magic, version and length, no header text"
+  },
+  {
+   "id": "header_cut",
+   "key": "cvread:v1:arr:fb31213da0cc58a2b9a2fe3bcd16c1e3:x0",
+   "file": "files/header_cut.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "the header text cut short"
+  },
+  {
+   "id": "bad_magic",
+   "key": "cvread:v1:arr:35ca84a2e9411227c0819d26eed0ce2c:x0",
+   "file": "files/bad_magic.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "the magic string is wrong"
+  },
+  {
+   "id": "bad_version",
+   "key": "cvread:v1:arr:31bfca4f345efd483ada6f1a5142c165:x0",
+   "file": "files/bad_version.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "format version 4.0"
+  },
+  {
+   "id": "hlen_past_eof",
+   "key": "cvread:v1:arr:321d69eaba9193feeecf617a3e8ba22f:x0",
+   "file": "files/hlen_past_eof.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "the header length points past the end of the file"
+  },
+  {
+   "id": "missing_shape",
+   "key": "cvread:v1:arr:2c502bcb0854043cdecf582836dc9489:x0",
+   "file": "files/missing_shape.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "no 'shape' key"
+  },
+  {
+   "id": "extra_key",
+   "key": "cvread:v1:arr:b34da3f61733b00ce58530b2174e0e9f:x0",
+   "file": "files/extra_key.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "an unexpected key"
+  },
+  {
+   "id": "not_a_dict",
+   "key": "cvread:v1:arr:98a777bead9601196ac38322f56c78df:x0",
+   "file": "files/not_a_dict.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "the header is a list"
+  },
+  {
+   "id": "garbage_text",
+   "key": "cvread:v1:arr:c021ccedb5e76d470dd2d43c6f666c56:x0",
+   "file": "files/garbage_text.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "the header does not parse; numpy raises tokenize.TokenError, which Python's attach does not catch today",
+   "python": "step3"
+  },
+  {
+   "id": "negative_dim",
+   "key": "cvread:v1:arr:39b7024cee4f6f8ca36f2198bc5aa177:x0",
+   "file": "files/negative_dim.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "a negative dimension"
+  },
+  {
+   "id": "unknown_descr",
+   "key": "cvread:v1:arr:db99f3d7a241de892e93d40e0349a796:x0",
+   "file": "files/unknown_descr.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "a descriptor no reader knows"
+  },
+  {
+   "id": "object_descr",
+   "key": "cvread:v1:arr:cdce53609edba38e9f9c5e078da3b0ea:x0",
+   "file": "files/object_descr.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "an object array: a reader never unpickles, so it is a miss"
+  },
+  {
+   "id": "order_not_bool",
+   "key": "cvread:v1:arr:dffac8749d833f4690d65be75f8018a0:x0",
+   "file": "files/order_not_bool.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "fortran_order is not a bool"
+  },
+  {
+   "id": "align_16",
+   "key": "cvread:v1:arr:152f57f537df2cc50158ca599fb9b4e5:x0",
+   "file": "files/align_16.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": "'<i4'",
+    "shape": [
+     10
+    ],
+    "fortran_order": false,
+    "payload_sha256": "76def75856e5d73ece011b058b02d205991a48f0fcf8b7ddcc24005d57759b23"
+   },
+   "note": "a header padded to 16 bytes, as old numpy wrote it"
+  },
+  {
+   "id": "empty_array",
+   "key": "cvread:v1:arr:f8d3f791dc77e3515460a9e1ff12b704:x0",
+   "file": "files/empty_array.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": "'<f4'",
+    "shape": [
+     0
+    ],
+    "fortran_order": false,
+    "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "note": "shape (0,): the header is the whole file"
+  },
+  {
+   "id": "fortran_big",
+   "key": "cvread:v1:arr:00debe9123470c23788b3af4ee14c2b2:x0",
+   "file": "files/fortran_big.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": "'>f8'",
+    "shape": [
+     3,
+     2
+    ],
+    "fortran_order": true,
+    "payload_sha256": "a6250da1e7ca144af7fdac8fd737c2e88e87cc08e232b16b53452227a56d5dde"
+   },
+   "note": "Fortran order, big-endian"
+  },
+  {
+   "id": "header_v1_large",
+   "key": "cvread:v1:arr:1512537850491d5aa35fa35acd70b452:x0",
+   "file": "npy/v1_large.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": null,
+    "shape": [
+     0
+    ],
+    "fortran_order": false,
+    "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "note": "a header over 10000 bytes but within the contract's 1 MiB limit",
+   "python": "step3"
+  },
+  {
+   "id": "header_v2",
+   "key": "cvread:v1:arr:aaf45415f3c68e57f431e4dd2f74fec3:x0",
+   "file": "npy/v2.npy",
+   "expect": {
+    "outcome": "hit",
+    "counters": {
+     "shm_hit": 1
+    },
+    "descr": null,
+    "shape": [
+     0
+    ],
+    "fortran_order": false,
+    "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "note": "a header over 10000 bytes but within the contract's 1 MiB limit",
+   "python": "step3"
+  },
+  {
+   "id": "header_over_limit",
+   "key": "cvread:v1:arr:3674841d772c7852a8c317c07894e845:x0",
+   "file": "files/header_over_limit.npy",
+   "expect": {
+    "outcome": "torn",
+    "counters": {
+     "shm_torn": 1
+    }
+   },
+   "note": "a version 2 length field over the 1 MiB header limit; a reader refuses it before reading the text (the fixture holds only the first bytes)"
+  }
+ ]
+}

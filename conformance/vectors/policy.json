@@ -1,0 +1,356 @@
+{
+ "contract": 1,
+ "category": "policy",
+ "about": ".policy.json at the store root against the environment (C7). {root} is the store root",
+ "vectors": [
+  {
+   "id": "absent_env",
+   "policy_file": null,
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   }
+  },
+  {
+   "id": "file_wins",
+   "policy_file": {
+    "text": "{\"TTL_S\": 200}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 200.0
+   },
+   "python": "step3"
+  },
+  {
+   "id": "file_only",
+   "policy_file": {
+    "text": "{\"TTL_S\": 200}"
+   },
+   "env": {},
+   "expect": {
+    "ttl_s": 200.0
+   },
+   "python": "step3"
+  },
+  {
+   "id": "env_fills",
+   "policy_file": {
+    "text": "{\"MAX_GB\": 7}"
+   },
+   "env": {
+    "COMMONKIT_STORE_MIN_FREE_GB": "1"
+   },
+   "expect": {
+    "max_bytes": 7516192768,
+    "min_free_bytes": 1073741824
+   },
+   "note": "the environment fills what the file leaves out",
+   "python": "step3"
+  },
+  {
+   "id": "default_fills",
+   "policy_file": {
+    "text": "{\"MAX_GB\": 7}"
+   },
+   "env": {},
+   "expect": {
+    "max_bytes": 7516192768,
+    "ttl_s": 900.0
+   },
+   "python": "step3"
+  },
+  {
+   "id": "thresher",
+   "policy_file": {
+    "text": "{\"MAX_GB\": 7, \"MIN_FREE_GB\": 1, \"TTL_S\": 604800}"
+   },
+   "env": {},
+   "expect": {
+    "max_bytes": 7516192768,
+    "min_free_bytes": 1073741824,
+    "ttl_s": 604800.0
+   },
+   "note": "a Finder-launched process sees the tree's policy without ~/.bashrc",
+   "python": "step3"
+  },
+  {
+   "id": "string_value",
+   "policy_file": {
+    "text": "{\"TTL_S\": \"300\"}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 300.0
+   },
+   "note": "a string is parsed as an environment value is",
+   "python": "step3"
+  },
+  {
+   "id": "float_bytes",
+   "policy_file": {
+    "text": "{\"MAX_ARRAY_BYTES\": 1000.7}"
+   },
+   "env": {},
+   "expect": {
+    "max_array_bytes": 1000
+   },
+   "python": "step3"
+  },
+  {
+   "id": "bad_value",
+   "policy_file": {
+    "text": "{\"TTL_S\": \"abc\"}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "a malformed value is left out, so the environment fills it"
+  },
+  {
+   "id": "bool_for_number",
+   "policy_file": {
+    "text": "{\"TTL_S\": true}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   }
+  },
+  {
+   "id": "null_value",
+   "policy_file": {
+    "text": "{\"TTL_S\": null}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   }
+  },
+  {
+   "id": "nan_value",
+   "policy_file": {
+    "text": "{\"TTL_S\": NaN}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "NaN is not JSON; the file is malformed"
+  },
+  {
+   "id": "bad_json",
+   "policy_file": {
+    "text": "{\"TTL_S\": 200"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "an unparseable file is treated as absent"
+  },
+  {
+   "id": "not_object",
+   "policy_file": {
+    "text": "[1, 2]"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   }
+  },
+  {
+   "id": "duplicate_key",
+   "policy_file": {
+    "text": "{\"TTL_S\": 200, \"TTL_S\": 300}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "duplicate keys make the file malformed"
+  },
+  {
+   "id": "empty_file",
+   "policy_file": {
+    "text": ""
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   }
+  },
+  {
+   "id": "empty_object",
+   "policy_file": {
+    "text": "{}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   }
+  },
+  {
+   "id": "root_ignored",
+   "policy_file": {
+    "text": "{\"ROOT\": \"/elsewhere\", \"TTL_S\": 200}"
+   },
+   "env": {},
+   "expect": {
+    "ttl_s": 200.0,
+    "root": "{root}"
+   },
+   "note": "the root is how the file is found, so the file cannot move it",
+   "python": "step3"
+  },
+  {
+   "id": "lower_case_key",
+   "policy_file": {
+    "text": "{\"ttl_s\": 200}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "keys are exact"
+  },
+  {
+   "id": "unknown_key",
+   "policy_file": {
+    "text": "{\"COLOUR\": \"blue\", \"TTL_S\": 200}"
+   },
+   "env": {},
+   "expect": {
+    "ttl_s": 200.0
+   },
+   "python": "step3"
+  },
+  {
+   "id": "prefixed_key",
+   "policy_file": {
+    "text": "{\"COMMONKIT_STORE_TTL_S\": 200}"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "file keys carry no prefix"
+  },
+  {
+   "id": "fsync_true",
+   "policy_file": {
+    "text": "{\"FSYNC\": true}"
+   },
+   "env": {},
+   "expect": {
+    "fsync": true
+   },
+   "python": "step3"
+  },
+  {
+   "id": "fsync_file_off",
+   "policy_file": {
+    "text": "{\"FSYNC\": false}"
+   },
+   "env": {
+    "COMMONKIT_STORE_FSYNC": "1"
+   },
+   "expect": {
+    "fsync": false
+   },
+   "note": "file over environment holds for flags too",
+   "python": "step3"
+  },
+  {
+   "id": "fsync_string",
+   "policy_file": {
+    "text": "{\"FSYNC\": \"yes\"}"
+   },
+   "env": {},
+   "expect": {
+    "fsync": true
+   },
+   "python": "step3"
+  },
+  {
+   "id": "fsync_number",
+   "policy_file": {
+    "text": "{\"FSYNC\": 1}"
+   },
+   "env": {
+    "COMMONKIT_STORE_FSYNC": "0"
+   },
+   "expect": {
+    "fsync": false
+   },
+   "note": "a number is not a flag: left out, the environment says off",
+   "python": "step3"
+  },
+  {
+   "id": "verify_true",
+   "policy_file": {
+    "text": "{\"VERIFY_REPUBLISH\": true}"
+   },
+   "env": {},
+   "expect": {
+    "verify_republish": true
+   },
+   "python": "step3"
+  },
+  {
+   "id": "oversize",
+   "policy_file": {
+    "file": "policy/oversize.policy.json"
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "a file over 65536 bytes is treated as absent"
+  },
+  {
+   "id": "directory",
+   "policy_file": {
+    "directory": true
+   },
+   "env": {
+    "COMMONKIT_STORE_TTL_S": "100"
+   },
+   "expect": {
+    "ttl_s": 100.0
+   },
+   "note": "a directory named .policy.json is treated as absent"
+  }
+ ]
+}

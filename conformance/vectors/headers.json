@@ -1,0 +1,1864 @@
+{
+ "contract": 1,
+ "category": "headers",
+ "about": "numpy-written .npy files: a conforming writer reproduces each file byte for byte from `array`; a reader recovers every field",
+ "vectors": [
+  {
+   "id": "dtype_b1",
+   "file": "npy/dtype_b1.npy",
+   "array": {
+    "descr": "|b1",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|b1', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'|b1'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 3,
+   "file_bytes": 131,
+   "sha256": "0db41cce30c16cb195f6880ea476a0734514c28fa7142863aa235a83ed372a6b"
+  },
+  {
+   "id": "dtype_i1",
+   "file": "npy/dtype_i1.npy",
+   "array": {
+    "descr": "|i1",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|i1', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'|i1'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 3,
+   "file_bytes": 131,
+   "sha256": "1eb4505e6ed59cae97213d98f9021f6bfdc32a2cd3561eb6aee15e5f76f6fe64"
+  },
+  {
+   "id": "dtype_i2",
+   "file": "npy/dtype_i2.npy",
+   "array": {
+    "descr": "<i2",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<i2', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<i2'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 2,
+   "payload_bytes": 6,
+   "file_bytes": 134,
+   "sha256": "747dee489aa1ec791635ca332657de9a68c384a826d2dc1fb5f812b018b72dc8"
+  },
+  {
+   "id": "dtype_i4",
+   "file": "npy/dtype_i4.npy",
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<i4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<i4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "49365f4f6f80e731c3041cde2bdd05d8b6fb4619f3cf221b1fc538ac9a55a9c9"
+  },
+  {
+   "id": "dtype_i8",
+   "file": "npy/dtype_i8.npy",
+   "array": {
+    "descr": "<i8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<i8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<i8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "20edafda4b8d38043d993fb90434284cf4f6ccfab129f1afa8709c64bb37e928"
+  },
+  {
+   "id": "dtype_u1",
+   "file": "npy/dtype_u1.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 3,
+   "file_bytes": 131,
+   "sha256": "7638da6d734eabbf1a3c9a12235548e9880698b404d52bce2910d4121582c218"
+  },
+  {
+   "id": "dtype_u2",
+   "file": "npy/dtype_u2.npy",
+   "array": {
+    "descr": "<u2",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<u2', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<u2'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 2,
+   "payload_bytes": 6,
+   "file_bytes": 134,
+   "sha256": "e854418de2f117ffdf197d477eaa8bcb7ccbc30ee30d1ced1df6e52f658a00d6"
+  },
+  {
+   "id": "dtype_u4",
+   "file": "npy/dtype_u4.npy",
+   "array": {
+    "descr": "<u4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<u4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<u4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "acb46af6d3e769fedbad56a84f6eafb6875662127a7a30b0a64fe2a0b7496065"
+  },
+  {
+   "id": "dtype_u8",
+   "file": "npy/dtype_u8.npy",
+   "array": {
+    "descr": "<u8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<u8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<u8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "8977ef16204cfd5e5dad37cdac3cd9e3b03c00f7b38b06f5547338a91ba043e5"
+  },
+  {
+   "id": "dtype_f2",
+   "file": "npy/dtype_f2.npy",
+   "array": {
+    "descr": "<f2",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f2', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<f2'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 2,
+   "payload_bytes": 6,
+   "file_bytes": 134,
+   "sha256": "1fb0a2a8360a6fe33527bad33261470037bfb92d0d1a64415908e1ef83e6d125"
+  },
+  {
+   "id": "dtype_f4",
+   "file": "npy/dtype_f4.npy",
+   "array": {
+    "descr": "<f4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<f4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "9359bb4a0d18a036e6416f6d817eb95567534a39b2570d14add14143212cbfde"
+  },
+  {
+   "id": "dtype_f8",
+   "file": "npy/dtype_f8.npy",
+   "array": {
+    "descr": "<f8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<f8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "4aeacf38d5181c2b4759be1adff6dce92dc3aff66f552bd2db669222d6e80c9b"
+  },
+  {
+   "id": "dtype_c8",
+   "file": "npy/dtype_c8.npy",
+   "array": {
+    "descr": "<c8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<c8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<c8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "5b125a46b53f02c00eff338405a42230de71c8ecb02eca6aef092dc32fc04f9d"
+  },
+  {
+   "id": "dtype_c16",
+   "file": "npy/dtype_c16.npy",
+   "array": {
+    "descr": "<c16",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<c16', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 39,
+   "descr": "'<c16'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 16,
+   "payload_bytes": 48,
+   "file_bytes": 176,
+   "sha256": "fff79ee1f950f875c13570577c44cce7f16cc16e35f845ea87a6874354af18d5"
+  },
+  {
+   "id": "dtype_M8_s",
+   "file": "npy/dtype_M8_s.npy",
+   "array": {
+    "descr": "<M8[s]",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<M8[s]', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 37,
+   "descr": "'<M8[s]'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "42fa924babdb58e2a47d6b2e375b4266bf5741a6e2bfaf91850bd1ce549b01f7"
+  },
+  {
+   "id": "dtype_m8_ms",
+   "file": "npy/dtype_m8_ms.npy",
+   "array": {
+    "descr": "<m8[ms]",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<m8[ms]', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 36,
+   "descr": "'<m8[ms]'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "adfe309c5ece2b69dd65854f7e8697a6bf65d5e5f3c0668c38c49de3cac49ccd"
+  },
+  {
+   "id": "dtype_U3",
+   "file": "npy/dtype_U3.npy",
+   "array": {
+    "descr": "<U3",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<U3', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<U3'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 12,
+   "payload_bytes": 36,
+   "file_bytes": 164,
+   "sha256": "52f002c924ab45073e82773a6aebb9ac06863c79ce2dd15b532075ff50afcdf5"
+  },
+  {
+   "id": "dtype_S4",
+   "file": "npy/dtype_S4.npy",
+   "array": {
+    "descr": "|S4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|S4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'|S4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "fbcb605169ba2c585c7a75898a718dbd88e388a49513f2bc0012bbc774832459"
+  },
+  {
+   "id": "dtype_V4",
+   "file": "npy/dtype_V4.npy",
+   "array": {
+    "descr": "|V4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|V4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'|V4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "287d82e2526e0ed497192c3124ba1bf95dbcf3d795a259bf3dd39d0cfb56ac24"
+  },
+  {
+   "id": "big_i2",
+   "file": "npy/big_i2.npy",
+   "array": {
+    "descr": ">i2",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>i2', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>i2'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 2,
+   "payload_bytes": 6,
+   "file_bytes": 134,
+   "sha256": "116b1cef15860a9e52180bdaadf6247ae9de0abcf34eb4907beb6e2d8d862bc6",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_i4",
+   "file": "npy/big_i4.npy",
+   "array": {
+    "descr": ">i4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>i4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>i4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "9fc6c24dbc5dcde8848a6f11cf547ec263acca974516b2de283b44009d4a4ac0",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_u8",
+   "file": "npy/big_u8.npy",
+   "array": {
+    "descr": ">u8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>u8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>u8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "abf73a9a157d2be6c762df7095a847fc69020f12748170858243150315722db8",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_f4",
+   "file": "npy/big_f4.npy",
+   "array": {
+    "descr": ">f4",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>f4', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>f4'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "1591ee41843f71bd646878530561a9b34543a15960d01dd7d9d8301821fde487",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_f8",
+   "file": "npy/big_f8.npy",
+   "array": {
+    "descr": ">f8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>f8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>f8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "943daa8cf0ab24275e73f8357e143504fd9d03e8cd79a695868ed922174f3883",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_c8",
+   "file": "npy/big_c8.npy",
+   "array": {
+    "descr": ">c8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>c8', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>c8'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "0326171efb4631d7757f404297a760933ab54141a318f480f231de33a473bffe",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_U2",
+   "file": "npy/big_U2.npy",
+   "array": {
+    "descr": ">U2",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>U2', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'>U2'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "9d9c7dcaafb5db3cb6e9fbdb9cd840311a82b6730eccb1622fedf2e79af702c6",
+   "note": "big-endian"
+  },
+  {
+   "id": "big_M8_s",
+   "file": "npy/big_M8_s.npy",
+   "array": {
+    "descr": ">M8[s]",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>M8[s]', 'fortran_order': False, 'shape': (3,), }",
+   "growth_padding": 20,
+   "align_padding": 37,
+   "descr": "'>M8[s]'",
+   "fortran_order": false,
+   "shape": [
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "b8f46c07a4622efa220947b5335999480b6169e38d7c287f940fdeee0e17eaf9",
+   "note": "big-endian"
+  },
+  {
+   "id": "struct_basic",
+   "file": "npy/struct_basic.npy",
+   "array": {
+    "descr": "[('a', '<i4'), ('b', '<f8')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': [('a', '<i4'), ('b', '<f8')], 'fortran_order': False, 'shape': (2,), }",
+   "growth_padding": 20,
+   "align_padding": 17,
+   "descr": "[('a', '<i4'), ('b', '<f8')]",
+   "fortran_order": false,
+   "shape": [
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 12,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "959411ca772a87c9f70c032868904ada909f8577b5981617b34a7231da5bdf76"
+  },
+  {
+   "id": "struct_subarray",
+   "file": "npy/struct_subarray.npy",
+   "array": {
+    "descr": "[('rgb', '|u1', (3,)), ('w', '<f4')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': [('rgb', '|u1', (3,)), ('w', '<f4')], 'fortran_order': False, 'shape': (2,), }",
+   "growth_padding": 20,
+   "align_padding": 9,
+   "descr": "[('rgb', '|u1', (3,)), ('w', '<f4')]",
+   "fortran_order": false,
+   "shape": [
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 7,
+   "payload_bytes": 14,
+   "file_bytes": 142,
+   "sha256": "67c287cfb0117c3b4c504c349f166d37dbbfd8a562aabaa8094b45488cbd3722"
+  },
+  {
+   "id": "struct_padded",
+   "file": "npy/struct_padded.npy",
+   "array": {
+    "descr": "[('a', '|u1'), ('', '|V3'), ('b', '<i4')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': [('a', '|u1'), ('', '|V3'), ('b', '<i4')], 'fortran_order': False, 'shape': (2,), }",
+   "growth_padding": 20,
+   "align_padding": 4,
+   "descr": "[('a', '|u1'), ('', '|V3'), ('b', '<i4')]",
+   "fortran_order": false,
+   "shape": [
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 16,
+   "file_bytes": 144,
+   "sha256": "c5046b6a5112aeea83e8400009d6066f41f121d40b2f7775a34ab8ce687f59bb",
+   "note": "an aligned struct: numpy names its padding ''"
+  },
+  {
+   "id": "struct_nested",
+   "file": "npy/struct_nested.npy",
+   "array": {
+    "descr": "[('p', [('x', '<f4'), ('y', '<f4')]), ('id', '<u2')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 182,
+   "data_offset": 192,
+   "header_text": "{'descr': [('p', [('x', '<f4'), ('y', '<f4')]), ('id', '<u2')], 'fortran_order': False, 'shape': (2,), }",
+   "growth_padding": 20,
+   "align_padding": 57,
+   "descr": "[('p', [('x', '<f4'), ('y', '<f4')]), ('id', '<u2')]",
+   "fortran_order": false,
+   "shape": [
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 10,
+   "payload_bytes": 20,
+   "file_bytes": 212,
+   "sha256": "5c507feed41ed5c94722c581b22e6793ebf66aea1ac486714bc94123627bf4a0"
+  },
+  {
+   "id": "struct_quote",
+   "file": "npy/struct_quote.npy",
+   "array": {
+    "descr": "[(\"it's\", '<i2')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': [(\"it's\", '<i2')], 'fortran_order': False, 'shape': (2,), }",
+   "growth_padding": 20,
+   "align_padding": 28,
+   "descr": "[(\"it's\", '<i2')]",
+   "fortran_order": false,
+   "shape": [
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 2,
+   "payload_bytes": 4,
+   "file_bytes": 132,
+   "sha256": "794cd1018453675bb6eaf97929f84d1adb449b42b8f524390573df8d26f8c156",
+   "note": "Python repr switches to double quotes for a name holding a single quote"
+  },
+  {
+   "id": "shape_0d",
+   "file": "npy/shape_0d.npy",
+   "array": {
+    "descr": "<f8",
+    "shape": [],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f8', 'fortran_order': False, 'shape': (), }",
+   "growth_padding": 0,
+   "align_padding": 62,
+   "descr": "'<f8'",
+   "fortran_order": false,
+   "shape": [],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 8,
+   "file_bytes": 136,
+   "sha256": "1af6afd413e318e3deff5a1dccf387d4b31c46504283e5c301d7ca271dd1c3a9"
+  },
+  {
+   "id": "shape_empty",
+   "file": "npy/shape_empty.npy",
+   "array": {
+    "descr": "<f4",
+    "shape": [
+     0
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f4', 'fortran_order': False, 'shape': (0,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<f4'",
+   "fortran_order": false,
+   "shape": [
+    0
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 0,
+   "file_bytes": 128,
+   "sha256": "4e65bac20d7e3ce2d5f45a7e2a99fc25e1ca7ed28d2d729f4e598713da68639f"
+  },
+  {
+   "id": "shape_2d",
+   "file": "npy/shape_2d.npy",
+   "array": {
+    "descr": "<f4",
+    "shape": [
+     3,
+     4
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f4', 'fortran_order': False, 'shape': (3, 4), }",
+   "growth_padding": 20,
+   "align_padding": 38,
+   "descr": "'<f4'",
+   "fortran_order": false,
+   "shape": [
+    3,
+    4
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 48,
+   "file_bytes": 176,
+   "sha256": "c256114c40d7c3f008aa9023c4273f15c28f2e81ea6f97c5057bc35c466ca6ae"
+  },
+  {
+   "id": "shape_3d",
+   "file": "npy/shape_3d.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     2,
+     3,
+     4
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (2, 3, 4), }",
+   "growth_padding": 20,
+   "align_padding": 35,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    2,
+    3,
+    4
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 24,
+   "file_bytes": 152,
+   "sha256": "5337dde942e3f5040441c455293d2fadf09f5f507780e2c34d20e36c6ab23e01"
+  },
+  {
+   "id": "fortran_2d",
+   "file": "npy/fortran_2d.npy",
+   "array": {
+    "descr": "<i2",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<i2', 'fortran_order': True, 'shape': (2, 3), }",
+   "growth_padding": 20,
+   "align_padding": 39,
+   "descr": "'<i2'",
+   "fortran_order": true,
+   "shape": [
+    2,
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 2,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "926e3a8ca90b78a6b8b10f18e0778a36de1bba3cc3ea2618f6979d0e20bf0d86"
+  },
+  {
+   "id": "fortran_3d",
+   "file": "npy/fortran_3d.npy",
+   "array": {
+    "descr": "<f4",
+    "shape": [
+     2,
+     3,
+     4
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f4', 'fortran_order': True, 'shape': (2, 3, 4), }",
+   "growth_padding": 20,
+   "align_padding": 36,
+   "descr": "'<f4'",
+   "fortran_order": true,
+   "shape": [
+    2,
+    3,
+    4
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 96,
+   "file_bytes": 224,
+   "sha256": "26496f0b4ad139001eff4ab20f26ad08f101b1d965b312f563f54850338761ec"
+  },
+  {
+   "id": "fortran_1d",
+   "file": "npy/fortran_1d.npy",
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     5
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<i4', 'fortran_order': False, 'shape': (5,), }",
+   "growth_padding": 20,
+   "align_padding": 40,
+   "descr": "'<i4'",
+   "fortran_order": false,
+   "shape": [
+    5
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 20,
+   "file_bytes": 148,
+   "sha256": "048bb2f61dfed9e2326ce1eaa391d1886ab7be131de4fd09d1699d9fa9149aed",
+   "note": "1-d is C-contiguous, so numpy writes False"
+  },
+  {
+   "id": "fortran_big",
+   "file": "npy/fortran_big.npy",
+   "array": {
+    "descr": ">f8",
+    "shape": [
+     3,
+     2
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '>f8', 'fortran_order': True, 'shape': (3, 2), }",
+   "growth_padding": 20,
+   "align_padding": 39,
+   "descr": "'>f8'",
+   "fortran_order": true,
+   "shape": [
+    3,
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 48,
+   "file_bytes": 176,
+   "sha256": "d8a3bb4a3e390d151ad370789e49a2d33f658781ff9a3fd091c5d632468650e0"
+  },
+  {
+   "id": "growth_c_wide",
+   "file": "npy/growth_c_wide.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     0,
+     1000000000000000
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (0, 1000000000000000), }",
+   "growth_padding": 20,
+   "align_padding": 23,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    0,
+    1000000000000000
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 0,
+   "file_bytes": 128,
+   "sha256": "b181b938f097b355d752dd50fe0b22eea522316aae77eff36be56f71cebe6b58",
+   "note": "growth axis is shape[0]: one digit, 20 spaces of padding"
+  },
+  {
+   "id": "growth_c_long",
+   "file": "npy/growth_c_long.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     1000000000000000,
+     0
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (1000000000000000, 0), }",
+   "growth_padding": 5,
+   "align_padding": 38,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    1000000000000000,
+    0
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 0,
+   "file_bytes": 128,
+   "sha256": "df42d61aa78fbfaab7676f27ac8a70bc20b3270edac2e722bab4de5204e7fbf4",
+   "note": "growth axis is shape[0]: 16 digits, 5 spaces"
+  },
+  {
+   "id": "growth_f_empty",
+   "file": "npy/growth_f_empty.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     2,
+     0,
+     1000000000000000
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (2, 0, 1000000000000000), }",
+   "growth_padding": 20,
+   "align_padding": 20,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    2,
+    0,
+    1000000000000000
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 0,
+   "file_bytes": 128,
+   "sha256": "0da425a394dd30acf7cfe2a63dbcb940a6133282a1fa133c56782b640c61337e",
+   "note": "asked for Fortran order, but an empty array is C-contiguous too: numpy writes False, so the growth axis is shape[0]"
+  },
+  {
+   "id": "growth_f",
+   "file": "npy/growth_f.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     2,
+     1000
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '|u1', 'fortran_order': True, 'shape': (2, 1000), }",
+   "growth_padding": 17,
+   "align_padding": 39,
+   "descr": "'|u1'",
+   "fortran_order": true,
+   "shape": [
+    2,
+    1000
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 2000,
+   "file_bytes": 2128,
+   "sha256": "50336e0e8929308932e5c6b0429a7daca8aa618af2ccf733bbcb3d8faeb2513b",
+   "note": "Fortran order: the growth axis is shape[-1] (4 digits, 17 spaces)"
+  },
+  {
+   "id": "fortran_degenerate",
+   "file": "npy/fortran_degenerate.npy",
+   "array": {
+    "descr": "<f4",
+    "shape": [
+     1,
+     3
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<f4', 'fortran_order': False, 'shape': (1, 3), }",
+   "growth_padding": 20,
+   "align_padding": 38,
+   "descr": "'<f4'",
+   "fortran_order": false,
+   "shape": [
+    1,
+    3
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 4,
+   "payload_bytes": 12,
+   "file_bytes": 140,
+   "sha256": "7f8ce7b5d2687389905f6b18ae6bc8be439ccdebd23b0e6117cf8e3d93737733",
+   "note": "only one dimension over 1: C-contiguous too, so numpy writes False"
+  },
+  {
+   "id": "ones_15d",
+   "file": "npy/ones_15d.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 182,
+   "data_offset": 192,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), }",
+   "growth_padding": 20,
+   "align_padding": 63,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 1,
+   "file_bytes": 193,
+   "sha256": "2bb696c730c4fa2619f994799101496a82e72d0c9b43b3f6bb0d933d1706670d",
+   "note": "growth padding changes the length"
+  },
+  {
+   "id": "ones_20d",
+   "file": "npy/ones_20d.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 182,
+   "data_offset": 192,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), }",
+   "growth_padding": 20,
+   "align_padding": 48,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 1,
+   "file_bytes": 193,
+   "sha256": "837637b164ed1abe2e531d8cf81ce3ccae3c44543d9b4eee663f8ef1d0502483",
+   "note": "growth padding changes the length"
+  },
+  {
+   "id": "ones_21d",
+   "file": "npy/ones_21d.npy",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 182,
+   "data_offset": 192,
+   "header_text": "{'descr': '|u1', 'fortran_order': False, 'shape': (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), }",
+   "growth_padding": 20,
+   "align_padding": 45,
+   "descr": "'|u1'",
+   "fortran_order": false,
+   "shape": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 1,
+   "payload_bytes": 1,
+   "file_bytes": 193,
+   "sha256": "e0ff16a06a493c5662a5ac32bf77a2dad5e7d46842d89c125a4b0d3e64015df5",
+   "note": "growth padding changes the length"
+  },
+  {
+   "id": "align_full",
+   "file": "npy/align_full.npy",
+   "array": {
+    "descr": "<U100",
+    "shape": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 182,
+   "data_offset": 192,
+   "header_text": "{'descr': '<U100', 'fortran_order': False, 'shape': (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), }",
+   "growth_padding": 20,
+   "align_padding": 64,
+   "descr": "'<U100'",
+   "fortran_order": false,
+   "shape": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 400,
+   "payload_bytes": 400,
+   "file_bytes": 592,
+   "sha256": "3dfbc4b5a46c7f60032c49fd7003c13795e92142e4fa9d7165a84ecfb15bd25d",
+   "note": "alignment padding is a full 64 bytes: numpy pads with 1 to 64 spaces, never 0"
+  },
+  {
+   "id": "align_min",
+   "file": "npy/align_min.npy",
+   "array": {
+    "descr": "<c16",
+    "shape": [
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1,
+     1
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 118,
+   "data_offset": 128,
+   "header_text": "{'descr': '<c16', 'fortran_order': False, 'shape': (1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1), }",
+   "growth_padding": 20,
+   "align_padding": 1,
+   "descr": "'<c16'",
+   "fortran_order": false,
+   "shape": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 16,
+   "payload_bytes": 16,
+   "file_bytes": 144,
+   "sha256": "261841a406eef2ba11e7f0fdd823e8ed451d8dbb494ec9b6b6ee947b21e2d40b",
+   "note": "alignment padding is a single space"
+  },
+  {
+   "id": "v1_large",
+   "file": "npy/v1_large.npy",
+   "array": {
+    "fields": {
+     "count": 600,
+     "digits": 3,
+     "descr": "|u1"
+    },
+    "shape": [
+     0
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    1,
+    0
+   ],
+   "header_len": 10294,
+   "data_offset": 10304,
+   "header_text": null,
+   "growth_padding": 20,
+   "align_padding": 21,
+   "descr": null,
+   "fortran_order": false,
+   "shape": [
+    0
+   ],
+   "unpadded_data_offset": 10304,
+   "itemsize": 600,
+   "payload_bytes": 0,
+   "file_bytes": 10304,
+   "sha256": "e97effee5266c07490376139322df323374af303873f9d2d1e016ac709c9bb2b",
+   "header_text_sha256": "82a608fb896c6eab10646447c4b2072f25f2431e08c3c75afc912b258319afb1",
+   "note": "a version 1 header over 10000 bytes: np.load refuses it by default"
+  },
+  {
+   "id": "v2",
+   "file": "npy/v2.npy",
+   "array": {
+    "fields": {
+     "count": 3700,
+     "digits": 4,
+     "descr": "|u1"
+    },
+    "shape": [
+     0
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    2,
+    0
+   ],
+   "header_len": 66676,
+   "data_offset": 66688,
+   "header_text": null,
+   "growth_padding": 20,
+   "align_padding": 3,
+   "descr": null,
+   "fortran_order": false,
+   "shape": [
+    0
+   ],
+   "unpadded_data_offset": 66688,
+   "itemsize": 3700,
+   "payload_bytes": 0,
+   "file_bytes": 66688,
+   "sha256": "d217369a85a83a4becebcda2f786ec627982c6315847e3a54cba4151306dddb8",
+   "header_text_sha256": "1a5d45f57dcb9441b83bae877d08dbca6ceea6025e28e41eef459dc851f308c5",
+   "note": "over 65535 header bytes: numpy writes version 2.0"
+  },
+  {
+   "id": "v3",
+   "file": "npy/v3.npy",
+   "array": {
+    "descr": "[('\u03c0', '<i4'), ('r', '<f4')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "version": [
+    3,
+    0
+   ],
+   "header_len": 116,
+   "data_offset": 128,
+   "header_text": "{'descr': [('\u03c0', '<i4'), ('r', '<f4')], 'fortran_order': False, 'shape': (2,), }",
+   "growth_padding": 20,
+   "align_padding": 14,
+   "descr": "[('\u03c0', '<i4'), ('r', '<f4')]",
+   "fortran_order": false,
+   "shape": [
+    2
+   ],
+   "unpadded_data_offset": 128,
+   "itemsize": 8,
+   "payload_bytes": 16,
+   "file_bytes": 144,
+   "sha256": "fa14c5aaecf54e634a6e34c1d3d6e56315db2a5314b7b1160244ef6ebe2120f3",
+   "note": "a non-latin-1 field name: numpy writes version 3.0 (utf-8)"
+  }
+ ]
+}

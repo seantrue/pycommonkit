@@ -1,0 +1,635 @@
+{
+ "contract": 1,
+ "category": "admission",
+ "about": "Publish gates and dtype admission for a fresh key",
+ "scheme": {
+  "domain": "cvadm",
+  "version": "v1",
+  "forms": [
+   "img",
+   "tensor",
+   "free"
+  ],
+  "variants": [
+   "x0"
+  ],
+  "dtypes": {
+   "img": "|u1",
+   "tensor": "<f4"
+  }
+ },
+ "vectors": [
+  {
+   "id": "img_u1",
+   "key": "cvadm:v1:img:fd9c9a8ee7f3496f87cc94e22cb97e5f:x0",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     4,
+     4,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 48
+    }
+   }
+  },
+  {
+   "id": "img_i1",
+   "key": "cvadm:v1:img:5849a696d3aa42d48208e3fbd9735915:x0",
+   "array": {
+    "descr": "|i1",
+    "shape": [
+     4,
+     4,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   }
+  },
+  {
+   "id": "img_bool",
+   "key": "cvadm:v1:img:7358b915a1ef501f1452b41a1b399dc6:x0",
+   "array": {
+    "descr": "|b1",
+    "shape": [
+     4,
+     4
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   }
+  },
+  {
+   "id": "img_u2",
+   "key": "cvadm:v1:img:2d987c598bcaf3fa6be25e912e1b4bb4:x0",
+   "array": {
+    "descr": "<u2",
+    "shape": [
+     4,
+     4
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   }
+  },
+  {
+   "id": "tensor_f4",
+   "key": "cvadm:v1:tensor:fd36c5aec0b139a675ef5f64ab5b33cf:x0",
+   "array": {
+    "descr": "<f4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    }
+   }
+  },
+  {
+   "id": "tensor_f4_big",
+   "key": "cvadm:v1:tensor:e3b64e4b1f0aa2e8cfc6d8064c80903b:x0",
+   "array": {
+    "descr": ">f4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   },
+   "note": "dtype equality, not kind: >f4 is not float32"
+  },
+  {
+   "id": "tensor_f8",
+   "key": "cvadm:v1:tensor:c83dfee2064bcee93e80b72f54063ed2:x0",
+   "array": {
+    "descr": "<f8",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   }
+  },
+  {
+   "id": "tensor_f2",
+   "key": "cvadm:v1:tensor:873886f2b42e7466c612ded20c9c501f:x0",
+   "array": {
+    "descr": "<f2",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   }
+  },
+  {
+   "id": "free_c8",
+   "key": "cvadm:v1:free:41229e4948d3200a725bcc02502e7668:x0",
+   "array": {
+    "descr": "<c8",
+    "shape": [
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    }
+   },
+   "note": "an undeclared form takes any dtype"
+  },
+  {
+   "id": "free_struct",
+   "key": "cvadm:v1:free:7b9457e2b9cd0a597b768a6ebd69d5e5:x0",
+   "array": {
+    "descr": "[('a', '<i4'), ('b', '<f8')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    }
+   }
+  },
+  {
+   "id": "free_unicode",
+   "key": "cvadm:v1:free:27782c66e29fa57b00c30b76f56096ca:x0",
+   "array": {
+    "descr": "<U3",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    }
+   }
+  },
+  {
+   "id": "free_datetime",
+   "key": "cvadm:v1:free:3083567ada6bfc3a536f72311c2dd98f:x0",
+   "array": {
+    "descr": "<M8[s]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 16
+    }
+   }
+  },
+  {
+   "id": "free_object",
+   "key": "cvadm:v1:free:107e726b6d874b7ebd95a7fbd45c9958:x0",
+   "array": {
+    "descr": "|O",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "objects"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   },
+   "note": "C6(c): an object array is declined; Python raises ValueError from np.save today",
+   "python": "step3"
+  },
+  {
+   "id": "img_object",
+   "key": "cvadm:v1:img:618695272cc67c91d9f49d353364b96e:x0",
+   "array": {
+    "descr": "|O",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "objects"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:dtype",
+    "counters": {
+     "shm_declined_dtype": 1
+    }
+   },
+   "note": "the form's declared dtype already declines it"
+  },
+  {
+   "id": "mode_read",
+   "key": "cvadm:v1:img:228a81f97aced9a8b1c23ceb1ad6590c:x0",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     8
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "read",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:mode",
+    "counters": {
+     "shm_declined_mode": 1
+    }
+   }
+  },
+  {
+   "id": "small",
+   "key": "cvadm:v1:img:eb5c1399a871211c7e7ed732d15e3a8b:x0",
+   "array": {
+    "descr": "|i1",
+    "shape": [
+     8
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 9,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:small",
+    "counters": {
+     "shm_declined_small": 1
+    }
+   },
+   "note": "the size gate runs before the dtype gate"
+  },
+  {
+   "id": "size",
+   "key": "cvadm:v1:img:f7bd60b75b29d79b660a2859395c1a24:x0",
+   "array": {
+    "descr": "|i1",
+    "shape": [
+     64
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 63,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:size",
+    "counters": {
+     "shm_declined_size": 1
+    }
+   }
+  },
+  {
+   "id": "size_equal",
+   "key": "cvadm:v1:img:ed3c063d991e7edb45986dfb296c520e:x0",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     64
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 64,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 64
+    }
+   },
+   "note": "the limit itself is admitted"
+  },
+  {
+   "id": "small_equal",
+   "key": "cvadm:v1:img:cfe39fa58ccc5a34cf117f76462b9d4b:x0",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     64
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 64,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 64
+    }
+   }
+  },
+  {
+   "id": "space",
+   "key": "cvadm:v1:img:ff2364a0be3d20e46cc69efb36afe9a5:x0",
+   "array": {
+    "descr": "|i1",
+    "shape": [
+     8
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 4611686018427387904,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "declined:space",
+    "counters": {
+     "shm_declined_space": 1
+    }
+   }
+  },
+  {
+   "id": "budget",
+   "key": "cvadm:v1:img:2f212049ce79d2b949fd242043004288:x0",
+   "array": {
+    "descr": "|i1",
+    "shape": [
+     8
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1000
+   },
+   "usage": {
+    "bytes": 995,
+    "files": 3
+   },
+   "expect": {
+    "outcome": "declined:budget",
+    "counters": {
+     "shm_declined_budget": 1
+    }
+   },
+   "note": "a fresh .usage.json: 995 + 8 > 1000"
+  },
+  {
+   "id": "budget_equal",
+   "key": "cvadm:v1:img:aeffadaef58327b8a52edc8105ac850b:x0",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     5
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1000
+   },
+   "usage": {
+    "bytes": 995,
+    "files": 3
+   },
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 5
+    }
+   },
+   "note": "995 + 5 == 1000 is admitted"
+  },
+  {
+   "id": "bad_key",
+   "key": "cvadm:v1:png:abababababababababababababababab:x0",
+   "array": {
+    "descr": "|u1",
+    "shape": [
+     8
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "store": {
+    "mode": "readwrite",
+    "min_array_bytes": 0,
+    "max_array_bytes": 1048576,
+    "min_free_bytes": 0,
+    "max_bytes": 1099511627776
+   },
+   "expect": {
+    "outcome": "bad_key",
+    "counters": {
+     "shm_bad_key": 1
+    }
+   },
+   "note": "an unknown form: counted after the gates"
+  }
+ ]
+}

@@ -1,0 +1,140 @@
+{
+ "contract": 1,
+ "category": "reaper_paths",
+ "about": "Which paths under the root the reaper may unlink. Each vector is a tree holding one entry, aged `age_s`, reaped with ttl_s = 3600 and budgets that require no other eviction",
+ "reap": {
+  "ttl_s": 3600,
+  "max_bytes": 1099511627776,
+  "min_free_bytes": 0
+ },
+ "vectors": [
+  {
+   "id": "segment",
+   "path": "pil/ab/abababababababababababababababab.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "reaped"
+  },
+  {
+   "id": "segment_young",
+   "path": "pil/ab/abababababababababababababababab.o0.npy",
+   "kind": "file",
+   "age_s": 60,
+   "expect": "kept",
+   "note": "not expired and nothing over target"
+  },
+  {
+   "id": "shard_mismatch",
+   "path": "pil/cd/abababababababababababababababab.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "note": "C6(a): the shard directory must be the digest's first two characters",
+   "python": "step3"
+  },
+  {
+   "id": "too_shallow",
+   "path": "pil/abababababababababababababababab.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "python": "step3"
+  },
+  {
+   "id": "too_deep",
+   "path": "x/pil/ab/abababababababababababababababab.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "python": "step3"
+  },
+  {
+   "id": "root_npy",
+   "path": "notes.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "python": "step3"
+  },
+  {
+   "id": "no_variant",
+   "path": "pil/ab/abababababababababababababababab.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "python": "step3"
+  },
+  {
+   "id": "upper_digest",
+   "path": "pil/ab/ABABABABABABABABABABABABABABABAB.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "python": "step3"
+  },
+  {
+   "id": "dot_dir",
+   "path": ".pinned/pil/ab/abababababababababababababababab.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "note": "reserved dot-names are never reaped (contract 4, 9.4)",
+   "python": "step3"
+  },
+  {
+   "id": "symlink",
+   "path": "pil/ab/abababababababababababababababab.o0.npy",
+   "kind": "symlink",
+   "age_s": 7200,
+   "expect": "kept",
+   "note": "lstat: a symlink is not a regular file"
+  },
+  {
+   "id": "tmp_old",
+   "path": "pil/ab/abababababababababababababababab.o0.npy.4242.77.tmp",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "swept",
+   "note": "C6(b): an orphaned temporary file over an hour old",
+   "python": "step3"
+  },
+  {
+   "id": "tmp_dot_old",
+   "path": "pil/ab/.abababababababababababababababab.4242.3.tmp",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "swept",
+   "note": "PlumCraft's temporary-file spelling is swept too",
+   "python": "step3"
+  },
+  {
+   "id": "tmp_young",
+   "path": "pil/ab/abababababababababababababababab.o0.npy.4242.77.tmp",
+   "kind": "file",
+   "age_s": 600,
+   "expect": "kept"
+  },
+  {
+   "id": "tmp_root",
+   "path": "orphan.tmp",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept",
+   "note": "only segment directories are swept"
+  },
+  {
+   "id": "tmp_dot_dir",
+   "path": ".hello/x.tmp",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept"
+  },
+  {
+   "id": "other_file",
+   "path": "pil/ab/readme.txt",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept"
+  }
+ ]
+}

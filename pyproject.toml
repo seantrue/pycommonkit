@@ -1,0 +1,34 @@
+[project]
+name = "pycommonkit"
+version = "0.1.0"
+description = "Named shared-memory segments for numpy arrays: publish once, attach from any process."
+readme = "README.md"
+authors = [
+    { name = "Sean D. True", email = "sean.true@gmail.com" }
+]
+license = "MIT"
+license-files = ["LICENSE"]
+# 3.11, NOT 3.12: the model venvs this exists to serve are python 3.11, and
+# being importable there is the whole point of the package.
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+# Published as pycommonkit (PyPI `commonkit` belongs to an unrelated project), imported as
+# commonkit, so no consumer's code changes; only its dependency line does.
+module-name = "commonkit"
+
+[tool.ruff]
+line-length = 100

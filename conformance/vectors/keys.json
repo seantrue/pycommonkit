@@ -1,0 +1,696 @@
+{
+ "contract": 1,
+ "category": "keys",
+ "about": "Key building, parsing (grammar and scheme), key to path, registry",
+ "grammar": "\\A[a-z0-9]+:[a-z0-9]+:[a-z0-9]+:[0-9a-f]{32}:[a-z0-9]+\\Z",
+ "schemes": {
+  "cvkeys": {
+   "domain": "cvkeys",
+   "version": "v1",
+   "forms": [
+    "pil",
+    "f32chw"
+   ],
+   "variants": [
+    "o0",
+    "o1",
+    "oa"
+   ],
+   "dtypes": {
+    "pil": "|u1"
+   }
+  },
+  "cvre": {
+   "domain": "cvre",
+   "version": "v2",
+   "forms": [
+    "wav16k"
+   ],
+   "variant_pattern": "sr[0-9]+",
+   "dtypes": {
+    "wav16k": "<i2"
+   }
+  },
+  "cvloose": {
+   "domain": "cvloose",
+   "version": "v1",
+   "forms": [
+    "raw"
+   ],
+   "variant_pattern": "sr.+"
+  }
+ },
+ "build": [
+  {
+   "id": "lower",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababab",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "key": "cvkeys:v1:pil:abababababababababababababababab:o0"
+   }
+  },
+  {
+   "id": "default_form",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababab",
+   "variant": "o1",
+   "form": null,
+   "expect": {
+    "key": "cvkeys:v1:pil:abababababababababababababababab:o1"
+   },
+   "note": "form omitted: the scheme's first form"
+  },
+  {
+   "id": "second_form",
+   "scheme": "cvkeys",
+   "digest": "0123456789abcdef0123456789abcdef",
+   "variant": "oa",
+   "form": "f32chw",
+   "expect": {
+    "key": "cvkeys:v1:f32chw:0123456789abcdef0123456789abcdef:oa"
+   }
+  },
+  {
+   "id": "upper_folded",
+   "scheme": "cvkeys",
+   "digest": "ABABABABABABABABABABABABABABABAB",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "key": "cvkeys:v1:pil:abababababababababababababababab:o0"
+   },
+   "note": "building folds an upper-case digest (contract 3.3)"
+  },
+  {
+   "id": "mixed_folded",
+   "scheme": "cvkeys",
+   "digest": "0123456789ABCDEF0123456789abcdef",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "key": "cvkeys:v1:pil:0123456789abcdef0123456789abcdef:o0"
+   }
+  },
+  {
+   "id": "digest_31",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababa",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_33",
+   "scheme": "cvkeys",
+   "digest": "ababababababababababababababababa",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_nonhex",
+   "scheme": "cvkeys",
+   "digest": "gbababababababababababababababab",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_empty",
+   "scheme": "cvkeys",
+   "digest": "",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_space",
+   "scheme": "cvkeys",
+   "digest": " abababababababababababababababab",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_newline",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababab\n",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   },
+   "note": "a trailing newline is not a digest (`$` matches before one; use fullmatch)"
+  },
+  {
+   "id": "form_unknown",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababab",
+   "variant": "o0",
+   "form": "png",
+   "expect": {
+    "error": "form"
+   }
+  },
+  {
+   "id": "variant_unknown",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababab",
+   "variant": "o7",
+   "form": "pil",
+   "expect": {
+    "error": "variant"
+   }
+  },
+  {
+   "id": "variant_case",
+   "scheme": "cvkeys",
+   "digest": "abababababababababababababababab",
+   "variant": "O0",
+   "form": "pil",
+   "expect": {
+    "error": "variant"
+   },
+   "note": "variants are never folded"
+  },
+  {
+   "id": "pattern_ok",
+   "scheme": "cvre",
+   "digest": "fedcba9876543210fedcba9876543210",
+   "variant": "sr16000",
+   "form": null,
+   "expect": {
+    "key": "cvre:v2:wav16k:fedcba9876543210fedcba9876543210:sr16000"
+   }
+  },
+  {
+   "id": "pattern_prefix_only",
+   "scheme": "cvre",
+   "digest": "fedcba9876543210fedcba9876543210",
+   "variant": "sr16000x",
+   "form": null,
+   "expect": {
+    "error": "variant"
+   },
+   "note": "a variant pattern must match the WHOLE variant (contract 3.2)"
+  },
+  {
+   "id": "pattern_not_at_start",
+   "scheme": "cvre",
+   "digest": "fedcba9876543210fedcba9876543210",
+   "variant": "xsr16000",
+   "form": null,
+   "expect": {
+    "error": "variant"
+   }
+  },
+  {
+   "id": "pattern_breaks_grammar",
+   "scheme": "cvloose",
+   "digest": "fedcba9876543210fedcba9876543210",
+   "variant": "sr-1",
+   "form": null,
+   "expect": {
+    "error": "variant"
+   },
+   "note": "a variant must satisfy the token grammar whatever the pattern says"
+  }
+ ],
+ "parse": [
+  {
+   "id": "ok_closed",
+   "key": "cvkeys:v1:pil:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": true,
+    "parts": [
+     "pil",
+     "abababababababababababababababab",
+     "o0"
+    ],
+    "relpath": "pil/ab/abababababababababababababababab.o0.npy"
+   }
+  },
+  {
+   "id": "ok_second_form",
+   "key": "cvkeys:v1:f32chw:0123456789abcdef0123456789abcdef:oa",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": true,
+    "parts": [
+     "f32chw",
+     "0123456789abcdef0123456789abcdef",
+     "oa"
+    ],
+    "relpath": "f32chw/01/0123456789abcdef0123456789abcdef.oa.npy"
+   }
+  },
+  {
+   "id": "ok_pattern",
+   "key": "cvre:v2:wav16k:fedcba9876543210fedcba9876543210:sr44100",
+   "scheme": "cvre",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": true,
+    "parts": [
+     "wav16k",
+     "fedcba9876543210fedcba9876543210",
+     "sr44100"
+    ],
+    "relpath": "wav16k/fe/fedcba9876543210fedcba9876543210.sr44100.npy"
+   }
+  },
+  {
+   "id": "upper_digest",
+   "key": "cvkeys:v1:pil:ABABABABABABABABABABABABABABABAB:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   },
+   "note": "parsing never folds (contract 3.3)"
+  },
+  {
+   "id": "upper_domain",
+   "key": "CVKEYS:v1:pil:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "digest_31",
+   "key": "cvkeys:v1:pil:abababababababababababababababa:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "digest_33",
+   "key": "cvkeys:v1:pil:ababababababababababababababababa:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "digest_nonhex",
+   "key": "cvkeys:v1:pil:gbababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "four_parts",
+   "key": "cvkeys:v1:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "six_parts",
+   "key": "cvkeys:v1:pil:abababababababababababababababab:o0:x",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "empty_form",
+   "key": "cvkeys:v1::abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "empty_variant",
+   "key": "cvkeys:v1:pil:abababababababababababababababab:",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "dotdot_form",
+   "key": "cvkeys:v1:..:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "slash_form",
+   "key": "cvkeys:v1:pil/x:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "dot_variant",
+   "key": "cvkeys:v1:pil:abababababababababababababababab:o0.npy",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "underscore",
+   "key": "cvkeys:v1:pil_x:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "leading_space",
+   "key": " cvkeys:v1:pil:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "trailing_newline",
+   "key": "cvkeys:v1:pil:abababababababababababababababab:o0\n",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   },
+   "note": "a key MUST match in full: no final newline (`$` accepts one; use fullmatch)"
+  },
+  {
+   "id": "empty",
+   "key": "",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "unknown_form",
+   "key": "cvkeys:v1:png:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": false
+   },
+   "note": "grammatical, so a reader may attach it (C4); the scheme refuses it"
+  },
+  {
+   "id": "unknown_variant",
+   "key": "cvkeys:v1:pil:abababababababababababababababab:o7",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "wrong_version",
+   "key": "cvkeys:v2:pil:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "other_domain",
+   "key": "nosuch:v1:pil:abababababababababababababababab:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "pattern_prefix_only",
+   "key": "cvre:v2:wav16k:fedcba9876543210fedcba9876543210:sr16000x",
+   "scheme": "cvre",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": false
+   }
+  }
+ ],
+ "registry": [
+  {
+   "id": "identical",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "expect": "idempotent",
+   "domain": "cvreg0"
+  },
+  {
+   "id": "other_version",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "second": {
+    "version": "v2",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "expect": "error",
+   "domain": "cvreg1"
+  },
+  {
+   "id": "forms_reordered",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "f32chw",
+     "pil"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "expect": "error",
+   "note": "the first form is the default, so order is part of the scheme",
+   "domain": "cvreg2"
+  },
+  {
+   "id": "other_variants",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "expect": "error",
+   "domain": "cvreg3"
+  },
+  {
+   "id": "other_dtypes",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {}
+   },
+   "expect": "error",
+   "domain": "cvreg4"
+  },
+  {
+   "id": "same_pattern",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "wav"
+    ],
+    "variant_pattern": "sr[0-9]+"
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "wav"
+    ],
+    "variant_pattern": "sr[0-9]+"
+   },
+   "expect": "idempotent",
+   "domain": "cvreg5"
+  },
+  {
+   "id": "other_pattern",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "wav"
+    ],
+    "variant_pattern": "sr[0-9]+"
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "wav"
+    ],
+    "variant_pattern": "hz[0-9]+"
+   },
+   "expect": "error",
+   "note": "two pattern schemes are the same only when the pattern TEXT is the same",
+   "domain": "cvreg6"
+  },
+  {
+   "id": "pattern_vs_closed",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "wav"
+    ],
+    "variant_pattern": "sr[0-9]+"
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "wav"
+    ],
+    "variant_pattern": null,
+    "variants": [
+     "sr1"
+    ]
+   },
+   "expect": "error",
+   "domain": "cvreg7"
+  }
+ ]
+}

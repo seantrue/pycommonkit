@@ -1,0 +1,438 @@
+{
+ "contract": 1,
+ "category": "existing_key",
+ "about": "Publishing to a key whose path already exists (C15)",
+ "scheme": {
+  "domain": "cvex",
+  "version": "v1",
+  "forms": [
+   "arr"
+  ],
+  "variants": [
+   "x0"
+  ]
+ },
+ "vectors": [
+  {
+   "id": "absent",
+   "key": "cvex:v1:arr:e5671794bf87ebab2a0d5e0ded530e68:x0",
+   "existing": null,
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    },
+    "file_after": "new",
+    "mtime": "new",
+    "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   }
+  },
+  {
+   "id": "torn_short",
+   "key": "cvex:v1:arr:3e74961a327c1b6777d5bea525334ba5:x0",
+   "existing": {
+    "file": "existing/torn_short.npy",
+    "mtime_age_s": 3600,
+    "sha256": "360c6cdc2d2ab9f521a6b3f2426d3ea4724c0cb69e7beb63737ce4795348834b"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_torn_replaced": 1,
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    },
+    "file_after": "new",
+    "mtime": "new",
+    "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "note": "damage from outside the contract",
+   "python": "step3"
+  },
+  {
+   "id": "torn_header",
+   "key": "cvex:v1:arr:4768625a0df291a2a821cc0f7621c192:x0",
+   "existing": {
+    "file": "existing/torn_header.npy",
+    "mtime_age_s": 3600,
+    "sha256": "83074f9527deddc1b84d632686b49e9136a1bcf269f0392b3c802b31a3d04361"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_torn_replaced": 1,
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    },
+    "file_after": "new",
+    "mtime": "new",
+    "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "torn_empty",
+   "key": "cvex:v1:arr:08ea4486b73eeb2cc88e1e370b7ec76f:x0",
+   "existing": {
+    "file": "existing/torn_empty.npy",
+    "mtime_age_s": 3600,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "published",
+    "counters": {
+     "shm_torn_replaced": 1,
+     "shm_publish": 1,
+     "shm_bytes_published": 24
+    },
+    "file_after": "new",
+    "mtime": "new",
+    "file_sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "match",
+   "key": "cvex:v1:arr:e3cc92c14a5e6dd1a7d94b6ff634d7fc:x0",
+   "existing": {
+    "file": "existing/match.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "touched",
+    "counters": {},
+    "file_after": "unchanged",
+    "mtime": "refreshed"
+   },
+   "note": "a republish writes nothing and refreshes mtime",
+   "python": "step3"
+  },
+  {
+   "id": "match_verified",
+   "key": "cvex:v1:arr:6887a3f6f28f8dc7bfa92a234bcb6892:x0",
+   "existing": {
+    "file": "existing/match_verified.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": true,
+   "expect": {
+    "outcome": "touched",
+    "counters": {},
+    "file_after": "unchanged",
+    "mtime": "refreshed"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "match_trailing",
+   "key": "cvex:v1:arr:f0c5784c28b07d1d423f6575a2ad6525:x0",
+   "existing": {
+    "file": "existing/match_trailing.npy",
+    "mtime_age_s": 3600,
+    "sha256": "0ae37d5dcfd2203092c8ac5b17fcc0b558096070e5089f284676a1215d81b7d5"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": true,
+   "expect": {
+    "outcome": "touched",
+    "counters": {},
+    "file_after": "unchanged",
+    "mtime": "refreshed"
+   },
+   "note": "trailing bytes are not part of the payload compared",
+   "python": "step3"
+  },
+  {
+   "id": "same_header_other_bytes",
+   "key": "cvex:v1:arr:81cb6c7ca10c5359c69f9aaab9384f58:x0",
+   "existing": {
+    "file": "existing/same_header_other_bytes.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp2"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "touched",
+    "counters": {},
+    "file_after": "unchanged",
+    "mtime": "refreshed"
+   },
+   "note": "verify_republish off: a same-header collision goes unseen",
+   "python": "step3"
+  },
+  {
+   "id": "same_header_other_bytes_verified",
+   "key": "cvex:v1:arr:2d62aa262faad9dd5a17348511eada11:x0",
+   "existing": {
+    "file": "existing/same_header_other_bytes_verified.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp2"
+   },
+   "verify_republish": true,
+   "expect": {
+    "outcome": "KeyCollision",
+    "counters": {
+     "shm_key_collision": 1
+    },
+    "file_after": "unchanged",
+    "mtime": "unchanged"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "other_dtype",
+   "key": "cvex:v1:arr:dc6018748c03d3579af94eb7786d2089:x0",
+   "existing": {
+    "file": "existing/other_dtype.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<u4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "KeyCollision",
+    "counters": {
+     "shm_key_collision": 1
+    },
+    "file_after": "unchanged",
+    "mtime": "unchanged"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "other_byteorder",
+   "key": "cvex:v1:arr:f37a8eb7d326ea07fe57e6da7c023601:x0",
+   "existing": {
+    "file": "existing/other_byteorder.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": ">i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "KeyCollision",
+    "counters": {
+     "shm_key_collision": 1
+    },
+    "file_after": "unchanged",
+    "mtime": "unchanged"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "other_shape",
+   "key": "cvex:v1:arr:812a1a0f58527715b7a768711fce73bc:x0",
+   "existing": {
+    "file": "existing/other_shape.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     3,
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "KeyCollision",
+    "counters": {
+     "shm_key_collision": 1
+    },
+    "file_after": "unchanged",
+    "mtime": "unchanged"
+   },
+   "python": "step3"
+  },
+  {
+   "id": "other_order",
+   "key": "cvex:v1:arr:710e2bab70c5090f7ff7700ce9f49f77:x0",
+   "existing": {
+    "file": "existing/other_order.npy",
+    "mtime_age_s": 3600,
+    "sha256": "dc4319296b2400b7eef5aa1589642b7f12aedf6f4bd91edced2fd676e5cd5a29"
+   },
+   "array": {
+    "descr": "<i4",
+    "shape": [
+     2,
+     3
+    ],
+    "order": "F",
+    "fill": "ramp"
+   },
+   "verify_republish": false,
+   "expect": {
+    "outcome": "KeyCollision",
+    "counters": {
+     "shm_key_collision": 1
+    },
+    "file_after": "unchanged",
+    "mtime": "unchanged"
+   },
+   "note": "same values in another memory order is a different file, so a collision",
+   "python": "step3"
+  },
+  {
+   "id": "padded_padding_differs_verified",
+   "key": "cvex:v1:arr:9f8dc49254ca906557a474f3c7a18f93:x0",
+   "existing": {
+    "file": "existing/padded_padding_differs_verified.npy",
+    "mtime_age_s": 3600,
+    "sha256": "0f7dd3f2b640d088ad000fe5492cb8c9fc9f5ab823e60fcdbb564dc28c28cca0"
+   },
+   "array": {
+    "descr": "[('a', '|u1'), ('', '|V3'), ('b', '<i4')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": true,
+   "expect": {
+    "outcome": "touched",
+    "counters": {},
+    "file_after": "unchanged",
+    "mtime": "refreshed"
+   },
+   "note": "only padding bytes differ (as after a copying read): named fields are compared",
+   "python": "step3"
+  },
+  {
+   "id": "padded_field_differs_verified",
+   "key": "cvex:v1:arr:f8e8e789fb1e6016d654f09b0962d84d:x0",
+   "existing": {
+    "file": "existing/padded_field_differs_verified.npy",
+    "mtime_age_s": 3600,
+    "sha256": "113128e03af3d6591e35a0cafc4ced4780a761177ab7c908d55cdfeac2678f74"
+   },
+   "array": {
+    "descr": "[('a', '|u1'), ('', '|V3'), ('b', '<i4')]",
+    "shape": [
+     2
+    ],
+    "order": "C",
+    "fill": "ramp"
+   },
+   "verify_republish": true,
+   "expect": {
+    "outcome": "KeyCollision",
+    "counters": {
+     "shm_key_collision": 1
+    },
+    "file_after": "unchanged",
+    "mtime": "unchanged"
+   },
+   "note": "a named field differs: a collision whatever the padding holds",
+   "python": "step3"
+  }
+ ]
+}
