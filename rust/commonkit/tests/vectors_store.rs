@@ -1,6 +1,6 @@
 //! The store-level conformance vectors, read from `conformance/vectors/` at test time:
 //! `reads.json` (attach, both modes), `admission.json` (the publish gates), `existing_key.json`
-//! (C15), `env.json` and `policy.json` (contract §10). `reaper_paths.json` is step 7.
+//! (C15), `env.json` and `policy.json` (contract §10), and `reaper_paths.json` (§9.4, §9.5).
 //!
 //! The environment is passed to `Policy::resolve` as a map rather than set in the process:
 //! `std::env::set_var` is `unsafe` in edition 2024 and races other test threads.
@@ -388,10 +388,84 @@ fn an_invalid_policy_file_is_empty() {
 
 // ---------------------------------------------------------------------- reaper paths
 
-/// `reaper_paths.json` tests the reaper (contract §9.4, §9.5), which is step 7 of the plan.
+/// `reaper_paths.json` (contract §9.4, §9.5): a tree holding one entry, aged, reaped with
+/// settings that require no other eviction. `reaped` is gone and counted; `swept` is gone and
+/// counts nothing; `kept` is there and counts nothing. A symbolic link's target is never touched.
 #[test]
-#[ignore = "step 7: the reaper; reaper_paths.json runs once Store::reap exists"]
 fn reaper_paths() {
     let doc = load("reaper_paths.json");
-    assert!(!list(&doc["vectors"]).is_empty());
+    let r = &doc["reap"];
+    let mut seen = 0;
+    for v in list(&doc["vectors"]) {
+        seen += 1;
+        let id = str_of(&v["id"]);
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("store");
+        let target = root.join(str_of(&v["path"]));
+        std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+        let age_s = v["age_s"].as_f64().unwrap();
+        let outside = dir.path().join("outside.npy");
+        match str_of(&v["kind"]) {
+            "symlink" => {
+                std::fs::write(&outside, [0u8; 64]).unwrap();
+                age(&outside, age_s);
+                #[cfg(unix)]
+                std::os::unix::fs::symlink(&outside, &target).unwrap();
+                #[cfg(windows)]
+                if std::os::windows::fs::symlink_file(&outside, &target).is_err() {
+                    continue; // creating a symbolic link needs a privilege on Windows
+                }
+            }
+            "file" => {
+                std::fs::write(&target, [0u8; 64]).unwrap();
+                age(&target, age_s);
+            }
+            k => panic!("{id}: kind {k}"),
+        }
+        let store = Store::new(
+            &root,
+            Options {
+                mode: Mode::ReadWrite,
+                ttl_s: r["ttl_s"].as_f64().unwrap(),
+                max_bytes: r["max_bytes"].as_i64().unwrap(),
+                min_free_bytes: r["min_free_bytes"].as_i64().unwrap(),
+                reap_interval_s: 0.0,
+                ..Options::default()
+            },
+        );
+        assert!(!store.is_disabled(), "{id}");
+        let out = store.reap(Duration::from_secs(10));
+        assert!(out.complete, "{id}");
+        let stats = counters(&store);
+        let exists = std::fs::symlink_metadata(&target).is_ok();
+        match str_of(&v["expect"]) {
+            "reaped" => {
+                assert!(!exists, "{id}");
+                let want = BTreeMap::from([
+                    ("shm_reaped".to_owned(), 1),
+                    ("shm_reaped_bytes".to_owned(), 64),
+                ]);
+                assert_eq!(stats, want, "{id}");
+                assert_eq!((out.scanned, out.reaped, out.bytes), (1, 1, 64), "{id}");
+            }
+            "swept" => {
+                assert!(!exists, "{id}");
+                assert!(
+                    stats.is_empty(),
+                    "{id}: a swept temporary file is not a reaped segment"
+                );
+                assert_eq!((out.scanned, out.reaped), (0, 0), "{id}");
+            }
+            "kept" => {
+                assert!(exists, "{id}");
+                assert!(stats.is_empty(), "{id}: {stats:?}");
+                assert_eq!(out.reaped, 0, "{id}");
+            }
+            e => panic!("{id}: expect {e}"),
+        }
+        if str_of(&v["kind"]) == "symlink" {
+            assert!(outside.exists(), "{id}: the link's target is never touched");
+        }
+    }
+    assert_eq!(seen, list(&doc["vectors"]).len());
 }

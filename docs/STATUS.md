@@ -1,6 +1,6 @@
 # Status
 
-*Updated 2026-10-28 (step 6).*
+*Updated 2026-10-28 (step 7).*
 
 ## Where things stand
 
@@ -66,6 +66,29 @@
 - **Windows type-checks:** `cargo check` and `cargo clippy -D warnings` pass for `x86_64-pc-windows-msvc`, with and without `mmap` (target installed on thresher; nothing runs on Windows yet).
 - **Two Python defects the Rust port found, fixed:** `SharedArrayStore("")` was an enabled store in the working directory (contract §6.1 says disabled); and `test_usage_bytes_must_be_a_non_negative_json_integer` tested nothing, because its fixture made every `.usage.json` stale. It now uses a fresh store with an integer control. Python: 551 passed.
 
+## Step 7: the Rust reaper (2026-10-28, branch `step7-rust-reaper`, uncommitted)
+
+- **`rust/commonkit/src/store/reap.rs`** (about 430 lines with unit tests) replaces the stub. `Store::reap(budget: Duration) -> ReapReport` (`scanned`, `reaped`, `bytes`, `complete`; `#[non_exhaustive]`), with `DEFAULT_REAP_BUDGET` (250 ms, Python's default) and `REAP_TURN_BUDGET` (50 ms). Publish and space or budget declines take rate-limited turns that now reap (C9).
+- **Behaviour (contract §9):** refusals (empty root, `/`, fewer than two separators: `shm_reap_refused`; a disabled store doesn't reap); `.reap.lock` by `create_new`, mode 0644, the pid, released by a guard on every exit, broken when over 300 s old (by `lstat`), and that turn returns without reaping; the walk descends only `{form}/{xx}/` real directories (never a symbolic link, never a `.`-name), with the deadline checked before each directory; candidates by path shape and `lstat` only; `.tmp` over an hour old swept from segment directories only; sort by `(mtime, size, path bytes)`; eviction while expired, over the low water mark (complete walk only) or short of the floor; `.usage.json` after a complete walk only, via `.usage.json.tmp`, which is created exclusively (any left behind is unlinked first, so a planted link is never written through); free-space cache invalidated.
+- **Failures:** an unlink that finds the file gone (another reaper) is skipped quietly; any other failed unlink is skipped and counted `shm_reap_failed` (one per file) and eviction goes on. That is how Windows will see a mapped or open segment (§12); a note in `reap.rs` points there. A lock created but whose pid can't be written counts `shm_reap_failed` (Python raises there, and only its turn counts it).
+- **Tests:** 134 pass with default features and 134 with `--no-default-features` (unit 31, store 69, vectors_store 7, others unchanged, 1 doctest), none ignored. All 16 `reaper_paths.json` vectors pass. The eight Python reaper tests are ported under their names, and `test_a_declined_publish_still_reaps` now asserts the reaping. Rust's own: refusals, disabled store, bystanders (non-segment files, dot-names, `.pinned/`, shape misses, a segment-shaped directory, symbolic links to files and directories, a link at `.usage.json.tmp`), a mapping surviving the reaper, the lock's pid, held and stale locks, unlinking twice, a failed unlink, eight concurrent reapers on one tree, `.usage.json` contents, a partial walk still reaping what it found expired, the `.tmp` sweep. `cargo fmt --check`, clippy `-D warnings` both ways, and `cargo check`/`clippy` for `x86_64-pc-windows-msvc` both ways pass. Still no `unsafe` outside `map.rs`. Python unchanged: 551 passed, ruff clean.
+- **Test seams** (`Hooks`, hidden): `reap_unlink` replaces the reaper's unlink; `reap_dir` runs before each directory's deadline check.
+- **Found (not changed; probe `claude-debug/step7_python_reaper_probe.py`):**
+  - Python's `test_a_declined_publish_still_reaps` ages each segment inside the publish loop with `reap_interval_s=0`, so the next publish reaps it; the decline's own turn reaps 1, and `shm_reaped == 3` holds only by accumulation. The Rust port publishes, then ages.
+  - Racing reapers after a broken stale lock (C8) over-evict: an unlink that finds the file gone is not subtracted from `total` or added to `freed` (§9.6, in both languages), so the later reaper keeps evicting. Measured in Python: six segments with a low water mark of two leave none. Harmless to correctness (a miss is a slower path), but "harmless" in C8 understates it; counting ENOENT as freed would fix it in a later contract version.
+  - Python's `.usage.json.tmp` is opened with `open(…, "w")`, which follows a symbolic link at that name and truncates its target. Rust never writes through one.
+
+## Step 7 review (2026-10-28)
+
+Three problems the Rust reaper's agent found in Python and the contract, fixed in both languages ("Go for fix"):
+
+- **Racing reapers over-evicted.** A segment already gone (ENOENT: another reaper took it after a broken stale lock) wasn't counted toward the targets, so two racing reapers took six segments to none against a low water mark of two. It now counts as freed, though not as reaped (contract §9.2, §9.6, §9.7). Tests in both languages fail without the fix.
+- **`.usage.json.tmp` followed a symlink.** Python's `open(tmp, "w")` truncated whatever a symlink at that name pointed to; for a mapped segment, SIGBUS in its readers. It is now created exclusively after removing any leftover (contract §9.7), as Rust already did. A test fails without the fix.
+- **A weak test.** `test_a_declined_publish_still_reaps` passed only because three turns' counts added up; it now ages after publishing, so only the decline's own turn can reap.
+- **Per-candidate failures** (other than already gone) count `shm_reap_failed` in both languages, as Rust did; the contract says so (§9.6).
+
+Rust 135 passed (both feature sets), clippy clean on macOS and the Windows target; Python 553 passed, ruff clean.
+
 ## Next
 
 1. **The maintainer accepts the contract** (plan step 2's exit). Open choices the contract made where the plan was silent, listed for confirmation:
@@ -83,5 +106,5 @@
    - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
    - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
    - Deferred: CI builds only on stable Rust (the stated minimum, 1.95, is unchecked); the integration tests read `../../conformance` and must be excluded from the crate package before publishing.
-3. **Steps 7–10:** the reaper in Rust (replacing the step 6 stub, with `reaper_paths.json` and the Python reaper tests listed in `rust/commonkit/tests/store.rs`), cross-language conformance, then the ImpCraft and PlumCraft migrations.
+3. **Steps 8–10:** cross-language conformance, then the ImpCraft and PlumCraft migrations. Step 7 (the reaper) is done above.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.

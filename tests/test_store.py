@@ -274,11 +274,19 @@ def test_expired_segments_are_reaped(store):
 
 def test_a_declined_publish_still_reaps(store, monkeypatch):
     """The reaper used to run only after a successful publish: a full store
-    declined forever and was never reaped again."""
+    declined forever and was never reaped again.
+
+    Publish all three, THEN age them, so that only the decline's own turn can reap.
+    Ageing inside the publish loop let each later publish reap the earlier segment,
+    and the assertion held only because counts from three turns added up (found by
+    the Rust port, 2026-10-28).
+    """
     ks = _keys_n(3)
     for k in ks:
         store.publish(k, _wave())
+    for k in ks:
         _age(store, k, 2 * store.ttl_s)
+    assert store.drain_stats()["shm_reaped"] == 0
     monkeypatch.setattr(os, "statvfs", lambda p: _Vfs(4096))
     store.min_free_bytes = 2**30
     store._statvfs_at = 0.0
@@ -286,6 +294,46 @@ def test_a_declined_publish_still_reaps(store, monkeypatch):
     assert store.publish(WAV.key("ef" * 16, "sr16000", "wav16k"), _wave()) is False
     stats = store.drain_stats()
     assert stats["shm_declined_space"] == 1 and stats["shm_reaped"] == 3
+    assert [store.attach(k) for k in ks] == [None, None, None]
+
+
+def test_an_already_gone_segment_counts_toward_the_target(store, monkeypatch):
+    """Contract §9.6: a segment another reaper took (C8) has left the tree, so it counts
+    toward the targets. Not counting it let two racing reapers take six segments to none
+    against a low water mark of two. Here "another reaper" takes the two oldest first."""
+    ks = _keys_n(6)
+    for i, k in enumerate(ks):
+        store.publish(k, _wave())
+        _age(store, k, 600 - i * 60)                    # ks[0] oldest, all within TTL
+    seg = os.path.getsize(store.path_for(ks[0]))
+    store.max_bytes = int((2 * seg + seg // 2) / 0.8)   # low water 2.5 segments: room for 2
+    store.min_free_bytes = 0
+    real_unlink, raced = os.unlink, []
+
+    def racing_unlink(path, *a, **kw):
+        real_unlink(path, *a, **kw)
+        if path.endswith(".npy") and len(raced) < 2:
+            raced.append(path)
+            raise FileNotFoundError(path)               # the other reaper got there first
+
+    monkeypatch.setattr(os, "unlink", racing_unlink)
+    out = store.reap(budget_s=5)
+    assert out["complete"] and out["reaped"] == 2
+    assert [store.attach(k) is not None for k in ks] == [False] * 4 + [True] * 2
+    with open(os.path.join(store.root, ".usage.json")) as fh:
+        assert json.load(fh)["files"] == 2
+
+
+def test_usage_tmp_is_never_written_through_a_symlink(store, tmp_path):
+    """A symlink planted at ``.usage.json.tmp`` used to be followed and its target
+    truncated: for a mapped segment, SIGBUS in every reader (§7)."""
+    victim = tmp_path / "victim.bin"
+    victim.write_bytes(b"x" * 1000)
+    os.symlink(victim, os.path.join(store.root, ".usage.json.tmp"))
+    store.reap(budget_s=5)
+    assert victim.read_bytes() == b"x" * 1000
+    with open(os.path.join(store.root, ".usage.json")) as fh:
+        assert "bytes" in json.load(fh)
 
 
 def test_the_free_space_floor_evicts_least_recently_used(store, monkeypatch):

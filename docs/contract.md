@@ -387,7 +387,7 @@ The reaper is the only thing that removes segments. It runs on the publisher's s
 - The reaper creates `.reap.lock` with `O_CREAT | O_EXCL` and mode 0644, then writes its pid into it as decimal text.
 - If the lock exists: when its mtime is more than 300 seconds old, the reaper unlinks it; either way it returns **without reaping** on this turn. Any other failure to create the lock also returns without reaping.
 - Every exit after acquiring the lock releases it by unlinking it.
-- Two reapers may still race after a stale lock is broken. This is harmless: unlinking twice fails with ENOENT, which is skipped, and an interleaved `.usage.json` either parses or is treated as unknown (§9.7). (C8: kept for version 1.)
+- Two reapers may still race after a stale lock is broken. Unlinking twice fails with ENOENT; the second reaper counts that segment as gone toward its targets (§9.6), so the race does not over-evict, and an interleaved `.usage.json` either parses or is treated as unknown (§9.7). (C8: kept for version 1.) Before 2026-10-28 an ENOENT was simply skipped, so two racing reapers kept evicting: six segments went to none against a low water mark of two.
 
 ### 9.3 The walk
 
@@ -422,18 +422,22 @@ Python conforms since pycommonkit 0.1.0 (A9; vectors `reaper_paths.tmp_old`, `tm
   - **expired:** `now − mtime > ttl_s`;
   - **over:** the walk was complete and `total > low_water`;
   - **short:** `freed < need_free`.
-- It stops at the first candidate for which none holds. An unlink that fails is skipped. Each success subtracts the size from `total` and adds it to `freed`.
+- It stops at the first candidate for which none holds.
+- An unlink that succeeds subtracts the size from `total`, adds it to `freed`, and counts toward `reaped`, `bytes` and the reaped counters (§9.7).
+- An unlink that fails because the file is **already gone** (ENOENT: another reaper took it, §9.2) also subtracts the size from `total` and adds it to `freed`, because the segment has left the tree; it counts as neither reaped nor failed.
+- An unlink that fails for any other reason is skipped and counts `shm_reap_failed`, once per candidate, and the reaper goes on to the next candidate. On Windows that includes a segment a reader has open or mapped (§12).
+- Python and Rust conform since pycommonkit 0.1.0 (both tested).
 
 ### 9.7 Output and `.usage.json`
 
 - The reaper counts `shm_reaped` (segments unlinked) and `shm_reaped_bytes` (their sizes), and reports `scanned`, `reaped`, `bytes` and `complete`.
-- **After a complete walk only**, it writes `.usage.json` as a JSON object `{"bytes": B, "files": N, "ts": T}`: `B` is `total` after eviction (an integer), `N` is candidates scanned minus reaped (an integer), and `T` is `now` in Unix seconds (a number). It writes `.usage.json.tmp` and renames it over `.usage.json`. A partial walk writes nothing and counts `shm_reap_partial`, because it would under-count.
+- **After a complete walk only**, it writes `.usage.json` as a JSON object `{"bytes": B, "files": N, "ts": T}`: `B` is `total` after eviction (an integer), `N` is candidates scanned minus reaped minus already gone (an integer), and `T` is `now` in Unix seconds (a number). It writes `.usage.json.tmp` and renames it over `.usage.json`. The temporary file MUST be created exclusively (`O_CREAT | O_EXCL`, after unlinking any leftover at that name) and MUST NOT be opened through a symbolic link: opening it with a plain create-or-truncate followed a symlink planted at that name and truncated its target, which for a mapped segment is SIGBUS in every reader (§7). Python conforms since pycommonkit 0.1.0; it used `open(tmp, "w")` before 2026-10-28. A partial walk writes nothing and counts `shm_reap_partial`, because it would under-count.
 - The reaper invalidates the store's cached free-space figure.
 - **Reading** `.usage.json` (the budget gate, §6.2): it is **fresh** when `now − its mtime <= 2 × reap_interval_s`. It is **valid** when it is a JSON object whose `bytes` is a non-negative integer. A missing, stale or invalid file means usage is unknown, and the budget gate passes. Python conforms since pycommonkit 0.1.0 (A11). It used to accept a numeric string or a float for `bytes` too.
 
 ### 9.8 The rate limit
 
-A store keeps the time of its last reap turn, initially zero. A **reap turn** (after a successful publish, and after a space or budget decline) does nothing if `now − last < reap_interval_s`; otherwise it sets `last = now` and reaps with `budget_s = 0.05`. Any failure inside a turn is caught and counted `shm_reap_failed`.
+A store keeps the time of its last reap turn, initially zero. A **reap turn** (after a successful publish, and after a space or budget decline) does nothing if `now − last < reap_interval_s`; otherwise it sets `last = now` and reaps with `budget_s = 0.05`. Any failure inside a turn is caught and counted `shm_reap_failed`; so is each candidate whose unlink fails other than as already gone (§9.6).
 
 ### 9.9 Free space
 
@@ -521,7 +525,7 @@ Implementations use these names, so a stats table can sum them across languages.
 | `shm_publish_failed` | §6.5 |
 | `shm_reaped`, `shm_reaped_bytes`, `shm_reap_partial` | §9.7 |
 | `shm_reap_refused` | §9.1 |
-| `shm_reap_failed` | §9.8 |
+| `shm_reap_failed` | §9.6, §9.8 |
 
 A store's counters are drained (read and reset together) by `drain_stats`.
 

@@ -16,7 +16,7 @@ use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::{Component, Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::json::{self, Json};
 use crate::keys::{Key, Registry};
@@ -41,8 +41,13 @@ const USAGE_MAX_BYTES: u64 = 65536;
 const COMPARE_CHUNK: usize = 1 << 20;
 
 /// A reap turn after a publish walks for at most this long (contract §9.8).
-#[allow(dead_code)] // used by the reaper, step 7
-pub(crate) const REAP_TURN_BUDGET_S: f64 = 0.05;
+pub const REAP_TURN_BUDGET: Duration = Duration::from_millis(50);
+
+/// The walk budget Python's `reap()` takes when called without one.
+pub const DEFAULT_REAP_BUDGET: Duration = Duration::from_millis(250);
+
+mod reap;
+pub use reap::ReapReport;
 
 // --------------------------------------------------------------------------- settings
 
@@ -312,6 +317,7 @@ pub struct Usage {
 type FreeHook = Arc<dyn Fn(&Path) -> Option<u64> + Send + Sync>;
 type SyncHook = Arc<dyn Fn(&Path) -> io::Result<()> + Send + Sync>;
 type TurnHook = Arc<dyn Fn() + Send + Sync>;
+type DirHook = Arc<dyn Fn(&Path) + Send + Sync>;
 
 /// Test seams, as Python's tests monkeypatch `os.statvfs`, `_sync` and `_sync_dir`. Each hook,
 /// when set, replaces the real call. Not part of the API.
@@ -326,6 +332,11 @@ pub struct Hooks {
     pub sync_dir: Option<SyncHook>,
     /// Called on every reap turn that passes the rate limit (contract §9.8).
     pub reap_turn: Option<TurnHook>,
+    /// The reaper's unlink of a candidate or an orphaned `.tmp` (contract §9.5, §9.6).
+    pub reap_unlink: Option<SyncHook>,
+    /// Called with each directory the reaper's walk reaches, just before its deadline check
+    /// (contract §9.3), so a test can make the walk slow.
+    pub reap_dir: Option<DirHook>,
 }
 
 impl fmt::Debug for Hooks {
@@ -335,6 +346,8 @@ impl fmt::Debug for Hooks {
             .field("sync_file", &self.sync_file.is_some())
             .field("sync_dir", &self.sync_dir.is_some())
             .field("reap_turn", &self.reap_turn.is_some())
+            .field("reap_unlink", &self.reap_unlink.is_some())
+            .field("reap_dir", &self.reap_dir.is_some())
             .finish()
     }
 }
@@ -822,11 +835,12 @@ impl Store {
         self.reap_turn();
     }
 
-    /// STEP 7 STUB. The reaper (contract §9: lock, walk, LRU toward both targets,
-    /// `.usage.json`, the `.tmp` sweep) lands in step 7 of the plan. Then this reaps with a
-    /// budget of [`REAP_TURN_BUDGET_S`] and counts any failure as `shm_reap_failed`; Rust
-    /// publishers reap (C9). Until then a turn is taken at the right points and does nothing.
-    fn reap_turn(&self) {}
+    /// One turn: reap with a budget of [`REAP_TURN_BUDGET`]. Rust publishers reap (C9). The
+    /// reaper never fails or panics; anything that goes wrong inside it is counted
+    /// `shm_reap_failed` there.
+    fn reap_turn(&self) {
+        self.reap(REAP_TURN_BUDGET);
+    }
 }
 
 /// A JSON integer that is not negative (`-0` is 0); one past `u64` saturates, which every
