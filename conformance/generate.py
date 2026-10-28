@@ -7,8 +7,9 @@ The second command must be clean: every fixture is a pure function of this scrip
 numpy's ``.npy`` writer, with no timestamps, no randomness and no dict-order dependence.
 The vectors are the arbiter of ``docs/contract.md`` (contract section 13 describes their
 format). Python is the reference implementation, but a vector states the CONTRACT's
-outcome; where today's Python disagrees the vector carries ``"python": "step3"`` and
-``tests/test_vectors.py`` expects it to fail until step 3 of the Rust-crate plan.
+outcome. Where Python does not yet conform a vector carries ``"python": "step3"`` and
+``tests/test_vectors.py`` expects it to fail; since step 3 of the Rust-crate plan
+(pycommonkit 0.1.0) none does.
 
 Only numpy and the standard library are used, so this runs in the package's own venv.
 """
@@ -499,7 +500,7 @@ def reads_doc(w: Writer) -> dict:
     v("not_a_dict", raw_npy("[1, 2, 3]", good_arr.tobytes()), "torn", "the header is a list")
     v("garbage_text", raw_npy("{'descr': '<i4', 'fortran_order': Fals", good_arr.tobytes()),
       "torn", "the header does not parse; numpy raises tokenize.TokenError, which "
-      "Python's attach does not catch today", python=STEP3)
+      "Python's attach let through before pycommonkit 0.1.0")
     v("negative_dim", raw_npy("{'descr': '<i4', 'fortran_order': False, 'shape': (-1,), }",
                               good_arr.tobytes()), "torn", "a negative dimension")
     v("unknown_descr", raw_npy("{'descr': '<X4', 'fortran_order': False, 'shape': (10,), }",
@@ -522,7 +523,7 @@ def reads_doc(w: Writer) -> dict:
         arr = make_array(case[1])
         v(f"header_{id_}", None, "hit",
           "a header over 10000 bytes but within the contract's 1 MiB limit",
-          python=STEP3, hit=hit_of(arr), ref=f"npy/{id_}.npy")
+          hit=hit_of(arr), ref=f"npy/{id_}.npy")
     text = b"{'descr': '|u1', 'fortran_order': False, 'shape': (0,), }"
     over = b"\x93NUMPY\x02\x00" + struct.pack("<I", 2 ** 20 + 52) + text + b" " * 100
     v("header_over_limit", over, "torn",
@@ -578,8 +579,9 @@ def admission_doc() -> dict:
     a("free_struct", "free", "[('a', '<i4'), ('b', '<f8')]", (2,), "published")
     a("free_unicode", "free", "<U3", (2,), "published")
     a("free_datetime", "free", "<M8[s]", (2,), "published")
-    a("free_object", "free", "|O", (2,), "declined:dtype", fill="objects", python=STEP3,
-      note="C6(c): an object array is declined; Python raises ValueError from np.save today")
+    a("free_object", "free", "|O", (2,), "declined:dtype", fill="objects",
+      note="C6(c): an object array is declined; before pycommonkit 0.1.0 Python raised "
+      "ValueError from np.save")
     a("img_object", "img", "|O", (2,), "declined:dtype", fill="objects",
       note="the form's declared dtype already declines it")
     # Gate order (contract 6.2): mode, small, size, space, budget, dtype, key.
@@ -612,7 +614,7 @@ def existing_doc(w: Writer) -> dict:
     base = {"descr": "<i4", "shape": [2, 3], "order": "C", "fill": "ramp"}
 
     def e(id_, existing, new, outcome, *, verify=False, after="unchanged", mtime="unchanged",
-          python=STEP3, note=None, extra_counters=None):
+          python=None, note=None, extra_counters=None):
         digest = hashlib.md5(id_.encode()).hexdigest()
         arr = make_array(new)
         new_bytes = npy_bytes(arr)
@@ -699,19 +701,19 @@ def reaper_doc() -> dict:
     seg = f"pil/ab/{D1}.o0.npy"
     rp("segment", seg, "reaped")
     rp("segment_young", seg, "kept", age_s=60, note="not expired and nothing over target")
-    rp("shard_mismatch", f"pil/cd/{D1}.o0.npy", "kept", python=STEP3,
+    rp("shard_mismatch", f"pil/cd/{D1}.o0.npy", "kept",
        note="C6(a): the shard directory must be the digest's first two characters")
-    rp("too_shallow", f"pil/{D1}.o0.npy", "kept", python=STEP3)
-    rp("too_deep", f"x/pil/ab/{D1}.o0.npy", "kept", python=STEP3)
-    rp("root_npy", "notes.npy", "kept", python=STEP3)
-    rp("no_variant", f"pil/ab/{D1}.npy", "kept", python=STEP3)
-    rp("upper_digest", f"pil/ab/{D1.upper()}.o0.npy", "kept", python=STEP3)
-    rp("dot_dir", f".pinned/pil/ab/{D1}.o0.npy", "kept", python=STEP3,
+    rp("too_shallow", f"pil/{D1}.o0.npy", "kept")
+    rp("too_deep", f"x/pil/ab/{D1}.o0.npy", "kept")
+    rp("root_npy", "notes.npy", "kept")
+    rp("no_variant", f"pil/ab/{D1}.npy", "kept")
+    rp("upper_digest", f"pil/ab/{D1.upper()}.o0.npy", "kept")
+    rp("dot_dir", f".pinned/pil/ab/{D1}.o0.npy", "kept",
        note="reserved dot-names are never reaped (contract 4, 9.4)")
     rp("symlink", seg, "kept", kind="symlink", note="lstat: a symlink is not a regular file")
-    rp("tmp_old", f"pil/ab/{D1}.o0.npy.4242.77.tmp", "swept", python=STEP3,
+    rp("tmp_old", f"pil/ab/{D1}.o0.npy.4242.77.tmp", "swept",
        note="C6(b): an orphaned temporary file over an hour old")
-    rp("tmp_dot_old", f"pil/ab/.{D1}.4242.3.tmp", "swept", python=STEP3,
+    rp("tmp_dot_old", f"pil/ab/.{D1}.4242.3.tmp", "swept",
        note="PlumCraft's temporary-file spelling is swept too")
     rp("tmp_young", f"pil/ab/{D1}.o0.npy.4242.77.tmp", "kept", age_s=600)
     rp("tmp_root", "orphan.tmp", "kept", note="only segment directories are swept")
@@ -751,18 +753,18 @@ def env_doc() -> dict:
             ("ttl_empty", "", 900.0, None), ("ttl_word", "abc", 900.0, None),
             ("ttl_hex", "0x10", 900.0, None), ("ttl_comma", "7,5", 900.0, None),
             ("ttl_two_dots", "1.2.3", 900.0, None), ("ttl_sign_only", "-", 900.0, None),
-            ("ttl_underscore", "1_000", 900.0, STEP3), ("ttl_inf", "inf", 900.0, STEP3),
-            ("ttl_infinity", "Infinity", 900.0, STEP3), ("ttl_nan", "nan", 900.0, STEP3),
-            ("ttl_overflow", "1e999", 900.0, STEP3),
-            ("ttl_arabic_digits", "١٢", 900.0, STEP3),
-            ("ttl_nbsp", " 5", 900.0, STEP3)]:
+            ("ttl_underscore", "1_000", 900.0, None), ("ttl_inf", "inf", 900.0, None),
+            ("ttl_infinity", "Infinity", 900.0, None), ("ttl_nan", "nan", 900.0, None),
+            ("ttl_overflow", "1e999", 900.0, None),
+            ("ttl_arabic_digits", "١٢", 900.0, None),
+            ("ttl_nbsp", " 5", 900.0, None)]:
         ev(id_, {P + "TTL_S": raw}, {"ttl_s": val}, python=py)
     ev("reap_zero", {P + "REAP_S": "0"}, {"reap_interval_s": 0.0})
     ev("max_gb_int", {P + "MAX_GB": "7"}, {"max_bytes": 7 * GIB})
     ev("max_gb_frac", {P + "MAX_GB": "0.5"}, {"max_bytes": GIB // 2})
     ev("max_gb_trunc", {P + "MAX_GB": "1e-9"}, {"max_bytes": 1},
        note="1e-9 GiB is 1.07 bytes, truncated toward zero")
-    ev("max_gb_huge", {P + "MAX_GB": "1e300"}, {"max_bytes": "default"}, python=STEP3,
+    ev("max_gb_huge", {P + "MAX_GB": "1e300"}, {"max_bytes": "default"},
        note="a derived byte count over 2**63 - 1 is malformed")
     ev("min_free_gb", {P + "MIN_FREE_GB": "1"}, {"min_free_bytes": GIB})
     ev("max_array_float", {P + "MAX_ARRAY_BYTES": "1000.9"}, {"max_array_bytes": 1000},
@@ -771,12 +773,12 @@ def env_doc() -> dict:
     ev("max_array_word", {P + "MAX_ARRAY_BYTES": "lots"}, {"max_array_bytes": 128 * 2 ** 20})
     ev("max_array_nan", {P + "MAX_ARRAY_BYTES": "nan"}, {"max_array_bytes": 128 * 2 ** 20})
     ev("max_array_inf", {P + "MAX_ARRAY_BYTES": "inf"}, {"max_array_bytes": 128 * 2 ** 20},
-       python=STEP3, note="Python raises OverflowError today")
+       note="Python raised OverflowError before pycommonkit 0.1.0")
     ev("thresher", {P + "MAX_GB": "7", P + "MIN_FREE_GB": "1", P + "TTL_S": "604800"},
        {"max_bytes": 7 * GIB, "min_free_bytes": GIB, "ttl_s": 604800.0},
        note="the policy thresher sets in ~/.bashrc")
     for flag, attr in (("FSYNC", "fsync"), ("VERIFY_REPUBLISH", "verify_republish")):
-        ev(f"{attr}_unset", {}, {attr: False}, python=STEP3)
+        ev(f"{attr}_unset", {}, {attr: False})
         for raw, val in [("1", True), ("true", True), ("TRUE", True), ("Yes", True),
                          ("on", True), ("oN", True), ("", False), ("0", False),
                          ("false", False), ("no", False), ("off", False), ("2", False),
@@ -785,7 +787,7 @@ def env_doc() -> dict:
             safe += "_padded" if raw != raw.strip() else ""
             if raw != raw.lower() and raw.strip():
                 safe += "_case" + str(sum(c.isupper() for c in raw))
-            ev(f"{attr}_{safe}", {P + flag: raw}, {attr: val}, python=STEP3)
+            ev(f"{attr}_{safe}", {P + flag: raw}, {attr: val})
     ev("root_tilde", {P + "ROOT": "~/ckstore"}, {"root": "{home}/ckstore"})
     ev("root_absolute", {P + "ROOT": "/Volumes/CommonkitStore/store"},
        {"root": "/Volumes/CommonkitStore/store"})
@@ -820,21 +822,18 @@ def policy_doc(w: Writer) -> dict:
         return {"text": t}
 
     pv("absent_env", None, {P + "TTL_S": "100"}, {"ttl_s": 100.0})
-    pv("file_wins", text('{"TTL_S": 200}'), {P + "TTL_S": "100"}, {"ttl_s": 200.0},
-       python=STEP3)
-    pv("file_only", text('{"TTL_S": 200}'), {}, {"ttl_s": 200.0}, python=STEP3)
+    pv("file_wins", text('{"TTL_S": 200}'), {P + "TTL_S": "100"}, {"ttl_s": 200.0})
+    pv("file_only", text('{"TTL_S": 200}'), {}, {"ttl_s": 200.0})
     pv("env_fills", text('{"MAX_GB": 7}'), {P + "MIN_FREE_GB": "1"},
-       {"max_bytes": 7 * GIB, "min_free_bytes": GIB}, python=STEP3,
+       {"max_bytes": 7 * GIB, "min_free_bytes": GIB},
        note="the environment fills what the file leaves out")
-    pv("default_fills", text('{"MAX_GB": 7}'), {}, {"max_bytes": 7 * GIB, "ttl_s": 900.0},
-       python=STEP3)
+    pv("default_fills", text('{"MAX_GB": 7}'), {}, {"max_bytes": 7 * GIB, "ttl_s": 900.0})
     pv("thresher", text('{"MAX_GB": 7, "MIN_FREE_GB": 1, "TTL_S": 604800}'), {},
-       {"max_bytes": 7 * GIB, "min_free_bytes": GIB, "ttl_s": 604800.0}, python=STEP3,
+       {"max_bytes": 7 * GIB, "min_free_bytes": GIB, "ttl_s": 604800.0},
        note="a Finder-launched process sees the tree's policy without ~/.bashrc")
     pv("string_value", text('{"TTL_S": "300"}'), {P + "TTL_S": "100"}, {"ttl_s": 300.0},
-       python=STEP3, note="a string is parsed as an environment value is")
-    pv("float_bytes", text('{"MAX_ARRAY_BYTES": 1000.7}'), {}, {"max_array_bytes": 1000},
-       python=STEP3)
+       note="a string is parsed as an environment value is")
+    pv("float_bytes", text('{"MAX_ARRAY_BYTES": 1000.7}'), {}, {"max_array_bytes": 1000})
     pv("bad_value", text('{"TTL_S": "abc"}'), {P + "TTL_S": "100"}, {"ttl_s": 100.0},
        note="a malformed value is left out, so the environment fills it")
     pv("bool_for_number", text('{"TTL_S": true}'), {P + "TTL_S": "100"}, {"ttl_s": 100.0})
@@ -849,22 +848,20 @@ def policy_doc(w: Writer) -> dict:
     pv("empty_file", text(""), {P + "TTL_S": "100"}, {"ttl_s": 100.0})
     pv("empty_object", text("{}"), {P + "TTL_S": "100"}, {"ttl_s": 100.0})
     pv("root_ignored", text('{"ROOT": "/elsewhere", "TTL_S": 200}'), {},
-       {"ttl_s": 200.0, "root": "{root}"}, python=STEP3,
+       {"ttl_s": 200.0, "root": "{root}"},
        note="the root is how the file is found, so the file cannot move it")
     pv("lower_case_key", text('{"ttl_s": 200}'), {P + "TTL_S": "100"}, {"ttl_s": 100.0},
        note="keys are exact")
-    pv("unknown_key", text('{"COLOUR": "blue", "TTL_S": 200}'), {}, {"ttl_s": 200.0},
-       python=STEP3)
+    pv("unknown_key", text('{"COLOUR": "blue", "TTL_S": 200}'), {}, {"ttl_s": 200.0})
     pv("prefixed_key", text('{"COMMONKIT_STORE_TTL_S": 200}'), {P + "TTL_S": "100"},
        {"ttl_s": 100.0}, note="file keys carry no prefix")
-    pv("fsync_true", text('{"FSYNC": true}'), {}, {"fsync": True}, python=STEP3)
+    pv("fsync_true", text('{"FSYNC": true}'), {}, {"fsync": True})
     pv("fsync_file_off", text('{"FSYNC": false}'), {P + "FSYNC": "1"}, {"fsync": False},
-       python=STEP3, note="file over environment holds for flags too")
-    pv("fsync_string", text('{"FSYNC": "yes"}'), {}, {"fsync": True}, python=STEP3)
+       note="file over environment holds for flags too")
+    pv("fsync_string", text('{"FSYNC": "yes"}'), {}, {"fsync": True})
     pv("fsync_number", text('{"FSYNC": 1}'), {P + "FSYNC": "0"}, {"fsync": False},
-       python=STEP3, note="a number is not a flag: left out, the environment says off")
-    pv("verify_true", text('{"VERIFY_REPUBLISH": true}'), {}, {"verify_republish": True},
-       python=STEP3)
+       note="a number is not a flag: left out, the environment says off")
+    pv("verify_true", text('{"VERIFY_REPUBLISH": true}'), {}, {"verify_republish": True})
     pad = '{"TTL_S": 200, "PAD": "' + "x" * 70000 + '"}'
     big = w.file("policy/oversize.policy.json", pad.encode("ascii"))
     pv("oversize", {"file": big}, {P + "TTL_S": "100"}, {"ttl_s": 100.0},

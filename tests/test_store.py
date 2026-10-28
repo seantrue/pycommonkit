@@ -4,13 +4,16 @@ Everything here is the property the whole design rests on: **a missing segment
 is never an error, only a slower path**. Absent root, full filesystem, reaped
 segment, torn file, malformed key -- all return None or False.
 """
+import json
 import os
 import time
+from pathlib import Path
 
 import numpy as np
 import pytest
 
-from commonkit import KeyScheme, SharedArrayStore, register
+import commonkit.store as cks
+from commonkit import KeyCollision, KeyScheme, SharedArrayStore, register
 
 D1 = "ab" * 16
 D2 = "cd" * 16
@@ -350,3 +353,145 @@ def test_a_partial_walk_neither_evicts_for_budget_nor_writes_usage(store, monkey
     assert out["complete"] is False
     assert not os.path.exists(marker)
     assert out["reaped"] == 0
+
+
+# ------------------------------------------------- the on-disk contract (step 3)
+
+
+
+def _raw_npy(header: str, payload: bytes) -> bytes:
+    """A version 1 file with ``header`` as its text, padded to 64 bytes as numpy pads."""
+    text = header.encode("latin1")
+    pad = 64 - ((10 + len(text) + 1) % 64)
+    hlen = len(text) + pad + 1
+    return b"\x93NUMPY\x01\x00" + hlen.to_bytes(2, "little") + text + b" " * pad + b"\n" \
+        + payload
+
+
+@pytest.mark.parametrize("attach", ["mmap", "read"])
+def test_a_garbled_header_is_a_miss_not_an_exception(tmp_path, attach):
+    """numpy raises tokenize.TokenError (neither ValueError nor OSError) for this header,
+    and attach let it escape to the caller until 2026-10-28 (contract §8.1, A5)."""
+    s = SharedArrayStore(str(tmp_path / "seg"), mode="read", attach=attach)
+    path = s.path_for(key())
+    os.makedirs(os.path.dirname(path))
+    with open(path, "wb") as fh:
+        fh.write(_raw_npy("{'descr': '<i4', 'fortran_order': Fals", bytes(40)))
+    assert s.attach(key()) is None
+    assert dict(s.drain_stats()) == {"shm_torn": 1}
+
+
+def test_an_object_array_is_declined_and_leaves_no_temporary_file(store):
+    """np.save(allow_pickle=False) raised ValueError out of publish, past a handler that
+    caught only OSError, and left the .tmp behind (contract §6.3, A6)."""
+    objs = np.empty(4096, dtype=object)
+    assert store.publish(key(form="raw"), objs) is False
+    assert dict(store.drain_stats()) == {"shm_declined_dtype": 1}
+    assert [n for _d, _s, names in os.walk(store.root) for n in names
+            if n.endswith(".tmp")] == []
+
+
+def test_a_header_over_the_limit_is_declined(store):
+    """No reader accepts a header over 1 MiB, so none is written (contract §5.5)."""
+    wide = np.dtype([(f"f{i:06d}", "<i4") for i in range(70_000)])
+    assert cks._header_len(np.zeros(1, wide)) > cks.MAX_HEADER_BYTES
+    assert store.publish(key(form="raw"), np.zeros(4, wide)) is False
+    assert dict(store.drain_stats()) == {"shm_declined_dtype": 1}
+
+
+def test_republishing_the_same_array_touches_and_writes_nothing(store):
+    """A republish used to rewrite the segment and count a second publish (C15)."""
+    assert store.publish(key(), _wave())
+    path = store.path_for(key())
+    _age(store, key(), 3600)
+    inode = os.stat(path).st_ino
+    store.drain_stats()
+    assert store.publish(key(), _wave()) is True
+    st = os.stat(path)
+    assert st.st_ino == inode, "renamed over: the segment was rewritten"
+    assert time.time() - st.st_mtime < 60, "a republish is a touch"
+    assert dict(store.drain_stats()) == {}
+
+
+def test_a_different_array_under_an_existing_key_raises(store, caplog):
+    """The second loud path (contract §6.4): the file and its mtime stay as they were,
+    the collision is counted and logged at error level."""
+    assert store.publish(key(), _wave())
+    path = store.path_for(key())
+    _age(store, key(), 3600)
+    before = (Path(path).read_bytes(), os.stat(path).st_mtime)
+    store.drain_stats()
+    with caplog.at_level("ERROR", logger="commonkit.store"), \
+            pytest.raises(KeyCollision) as info:
+        store.publish(key(), _wave(150_000))
+    assert isinstance(info.value, ValueError)
+    assert (Path(path).read_bytes(), os.stat(path).st_mtime) == before
+    assert dict(store.drain_stats()) == {"shm_key_collision": 1}
+    assert [r.levelname for r in caplog.records] == ["ERROR"]
+
+
+def test_a_torn_segment_is_replaced_and_counted(store):
+    store.publish(key(), _wave())
+    with open(store.path_for(key()), "r+b") as fh:      # test-only: unmapped (contract §7)
+        fh.truncate(64)
+    store.drain_stats()
+    assert store.publish(key(), _wave()) is True
+    assert store.drain_stats()["shm_torn_replaced"] == 1
+    assert np.array_equal(store.attach(key()), _wave())
+
+
+def test_fsync_is_off_by_default(store, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cks, "_sync", calls.append)
+    assert store.fsync is False and store.publish(key(), _wave())
+    assert calls == []
+
+
+def test_fsync_syncs_the_file_before_the_rename_and_the_directory_after(store, monkeypatch):
+    """Contract §6.5 steps 3 and 5 (C17), in that order."""
+    seen = []
+    path = store.path_for(key())
+
+    def sync(fd):
+        seen.append((os.path.isdir(f"/dev/fd/{fd}") if os.path.exists("/dev/fd")
+                     else None, os.path.exists(path)))
+    monkeypatch.setattr(cks, "_sync", sync)
+    store.fsync = True
+    assert store.publish(key(), _wave())
+    if os.name == "posix":
+        assert [exists for _isdir, exists in seen] == [False, True]
+        assert seen[1][0] in (True, None)               # the second sync is the directory
+    else:                                               # pragma: no cover - Windows
+        assert [exists for _isdir, exists in seen] == [False]
+
+
+def test_a_failed_directory_sync_fails_the_publish_but_keeps_the_segment(store, monkeypatch):
+    def broken(_path):
+        raise OSError(5, "I/O error")
+    monkeypatch.setattr(cks, "_sync_dir", broken)
+    store.fsync = True
+    assert store.publish(key(), _wave()) is False
+    assert dict(store.drain_stats()) == {"shm_publish_failed": 1}
+    assert np.array_equal(store.attach(key()), _wave()), "the whole segment stays"
+
+
+def test_free_space_is_zero_without_statvfs(store, monkeypatch):
+    """A platform with no os.statvfs raised AttributeError out of publish (§9.9, A10)."""
+    monkeypatch.delattr(os, "statvfs")
+    store._statvfs_at = 0.0
+    assert store.publish(key(), _wave()) is False
+    assert {k: v for k, v in store.drain_stats().items() if v} == {"shm_declined_space": 1}
+
+
+@pytest.mark.parametrize("used", ["995", 995.0, -1, True, None])
+def test_usage_bytes_must_be_a_non_negative_json_integer(store, used):
+    """``int()`` took a float or a numeric string, which no other reader trusts (A11)."""
+    with open(os.path.join(store.root, ".usage.json"), "w") as fh:
+        json.dump({"bytes": used, "files": 3}, fh)
+    assert store.usage() == (-1, -1)
+
+
+def test_usage_survives_a_hostile_file(store):
+    with open(os.path.join(store.root, ".usage.json"), "w") as fh:
+        fh.write("[" * 100_000)                         # RecursionError, not ValueError
+    assert store.usage() == (-1, -1)

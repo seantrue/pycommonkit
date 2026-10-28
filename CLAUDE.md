@@ -43,7 +43,7 @@ counter in `self.stats`. The `SharedArrayStore` constructor never raises — an
 unusable root sets `disabled` and every method becomes a no-op. The one
 exception is `KeyScheme.key()`/`parse()`, which raise `ValueError` loudly at
 the call site; the store catches that and counts `shm_bad_key`. The contract
-adds a second loud path (decided, C15, lands in step 3): publishing a different
+adds a second loud path (C15, since step 3): publishing a different
 array under an existing key is a key collision, a major system error, and raises
 `KeyCollision`.
 
@@ -67,7 +67,7 @@ array under an existing key is a key collision, a major system error, and raises
   byte budget from `.usage.json`.
 - **The reaper.** It runs, rate-limited by `reap_interval_s`, after every publish **and every space or budget decline**. Until 2026-10-16 it ran only after a successful publish, so a full store was never reaped again.
   - It holds `.reap.lock` (O_EXCL, broken after 300 s).
-  - It walks only the root, and `lstat`s and unlinks only regular `.npy` files.
+  - It walks only the root, and `lstat`s and unlinks only regular files of the segment shape `{form}/{xx}/{xx…}.{variant}.npy` (C6(a)), plus orphaned `*.tmp` over an hour old in segment directories (C6(b)).
   - It evicts TTL-expired segments, then least recently used first (oldest mtime) until **both** targets are met: 80% of `max_bytes`, and the free-space floor plus 25% headroom. Before 2026-10-16 the floor only gated publishes, so a volume smaller than `max_bytes + min_free_bytes` filled and stuck.
   - `budget_s` bounds the **walk** only; eviction always reaches its target. The deadline is checked before each directory.
   - A partial walk neither evicts for the budget nor writes `.usage.json`, the cross-process usage figure, because it would under-count.
@@ -78,7 +78,7 @@ array under an existing key is a key collision, a major system error, and raises
   mapping*, not a copy. `get_with_source` returns `(arr, "l1"|"shm"|"decode")`
   so callers never infer the tier from counter deltas. The store counts its own
   hits/publishes; the tier must not double-count them (`drain_stats` sums both).
-- `shared.py` — `shared_store()`: the one per-host store all users share. Tree-wide policy (root, `MAX_GB`, `TTL_S`, `MIN_FREE_GB`, `REAP_S`, `MAX_ARRAY_BYTES`) comes only from `COMMONKIT_STORE_*` env vars or `DEFAULTS` (macOS: `~/Library/Caches/commonkit/store`, 2 GB because Time Machine local snapshots pin reaped segments; Linux: `/dev/shm/commonkit`, 8 GB). Callers pick only `mode` and `min_array_bytes`; a `root` argument exists for tests. Form names are global across domains in the shared tree.
+- `shared.py` — `shared_store()`: the one per-host store all users share. Tree-wide policy (root, `MAX_GB`, `TTL_S`, `MIN_FREE_GB`, `REAP_S`, `MAX_ARRAY_BYTES`) (plus `FSYNC`, `VERIFY_REPUBLISH`) comes only from `{root}/.policy.json` (which wins, C7), then `COMMONKIT_STORE_*` env vars, then `DEFAULTS`; the root never comes from the file (macOS: `~/Library/Caches/commonkit/store`, 2 GB because Time Machine local snapshots pin reaped segments; Linux: `/dev/shm/commonkit`, 8 GB). Callers pick only `mode` and `min_array_bytes`; a `root` argument exists for tests. Form names are global across domains in the shared tree.
 - `read.py` — `note()` (the single writer of `{prefix}{source}` counters,
   raises on an unknown source) and a never-raising `attach()` helper. Not
   re-exported from `__init__`.

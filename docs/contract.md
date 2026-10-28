@@ -22,7 +22,7 @@ MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119. Where nothing is said, b
 
 ### 1.3 Where Python changes
 
-In a few places this contract, as the maintainer decided it, runs ahead of the Python package as it stood at commonkit `2b6bcf9`. Each such clause is marked **"Python: changes in step 3"**, and Appendix A lists them all. The matching vectors carry `"python": "step3"` and are expected to fail in Python until step 3 of `docs/rust-crate-plan.md` lands.
+In a few places this contract, as the maintainer decided it, runs ahead of the Python package as it stood at commonkit `2b6bcf9`. Each such clause was marked **"Python: changes in step 3"**, and Appendix A lists them all; the matching vectors carried `"python": "step3"` and were expected to fail in Python. Step 3 of `docs/rust-crate-plan.md` has landed: each clause now reads "Python conforms since pycommonkit 0.1.0 (A*n*)", and no vector carries the mark. A later change that runs ahead of Python again uses the same marks.
 
 ### 1.4 Section numbers and the plan
 
@@ -222,7 +222,7 @@ The `descr` value names the dtype.
 ### 5.5 Limits
 
 - **Header length.** A reader MUST accept a header of up to 1 MiB (`HLEN <= 2^20`) and MUST treat a larger `HLEN` as torn without reading the text. A publisher MUST decline an array whose header would exceed it (`shm_declined_dtype`).
-  - Python: changes in step 3. `np.load` refuses any header over 10000 bytes unless `max_header_size` is raised, so Python misses every version 2 segment, and version 1 segments with long headers (vectors `reads.header_v1_large`, `reads.header_v2`). It also publishes them.
+  - Python conforms since pycommonkit 0.1.0 (A4): it passes `max_header_size` of 1 MiB to `np.load`, checks the prefix's length field before numpy reads the text, and declines a larger header on publish. `np.load` used to refuse any header over 10000 bytes, so Python missed every version 2 segment, and version 1 segments with long headers (vectors `reads.header_v1_large`, `reads.header_v2`), while publishing them.
 - **Dimensions.** A reader MUST accept up to 32 dimensions; numpy 1.x allows no more. numpy 2 writes up to 64, and a reader SHOULD accept those too.
 - **Size.** A reader MUST compute `itemsize × product(shape)` with checked arithmetic and MUST treat an overflow as torn.
 
@@ -288,7 +288,7 @@ A store has a root, a **mode** (`off`, `read` or `readwrite`), an **attach mode*
 
 The dtype gate declines (`shm_declined_dtype`):
 
-- **any object dtype** (§5.4), whatever the form (C6(c)). Python: changes in step 3. `np.save(..., allow_pickle=False)` raises `ValueError`, which `publish` does not catch, and it leaves the temporary file behind (vector `admission.free_object`);
+- **any object dtype** (§5.4), whatever the form (C6(c)). Python conforms since pycommonkit 0.1.0 (A6): it declines any dtype with `hasobject`, which covers `StringDType` too. `np.save(..., allow_pickle=False)` used to raise `ValueError`, which `publish` did not catch, and left the temporary file behind (vector `admission.free_object`);
 - an array whose header would exceed the limit, or whose field names or titles the writer cannot reproduce (§5.4, §5.5);
 - an array of a form whose scheme declares a dtype (§3.2), when the array's dtype is not **identical** to it. Identity is numpy dtype equality, which for the kinds a form can usefully declare is equality of canonical descriptors: `>f4` is not `<f4`, and `|i1` is not `|u1` (vectors `admission.tensor_f4_big`, `admission.img_i1`).
 
@@ -315,7 +315,7 @@ Notes:
 - **Read back by copy:** a structured array with padding that was read by copy in Python has zeroed padding bytes (§5.8). Republishing it is a republish, not a collision, because padding bytes are never compared (vectors `existing_key.padded_padding_differs_verified`, and `existing_key.padded_field_differs_verified` for a real difference).
 - Two publishers racing on one absent key may both write and both rename. By W1 they hold the same content, so the result is the same.
 - An existing path that is not a regular file is outside the contract.
-- Python: changes in step 3. Python rewrites an existing key unconditionally today: it counts a publish, never touches, never detects a collision, and has neither counter nor `verify_republish` (vectors `existing_key.*` except `absent`).
+- Python conforms since pycommonkit 0.1.0 (A7). It used to rewrite an existing key unconditionally: it counted a publish, never touched, never detected a collision, and had neither counter nor `verify_republish` (vectors `existing_key.*` except `absent`). `TieredPixelCache`, which catches every other exception from `publish`, lets `KeyCollision` through.
 
 ### 6.5 Writing
 
@@ -330,7 +330,7 @@ Errors:
 - ENOSPC or EDQUOT at any step before the rename counts `shm_declined_space`; any other error counts `shm_publish_failed`. Either way the temporary file is removed and the publish returns "not stored".
 - A failed sync before the rename is such an error. A failed directory sync after the rename counts `shm_publish_failed` and returns "not stored"; the segment, which is whole, is left in place.
 - `fsync` is off by default. With it off a crash can leave a short file under the segment name, which readers treat as torn (W4) and publishers replace (§6.4).
-- Python: changes in step 3 (the `fsync` option does not exist yet).
+- Python conforms since pycommonkit 0.1.0 (A8). On macOS it syncs with `F_FULLFSYNC`, since `fsync` there does not flush the drive's cache; on Windows, which cannot open a directory to sync it, step 5 is skipped (§12).
 
 ### 6.6 After a successful write
 
@@ -365,7 +365,7 @@ On POSIX systems unlinking or renaming over a file that another process has mapp
 | The file is whole | The array, read-only | `shm_hit`, then a touch (§8.2) |
 
 - With attach mode `mmap` the array MUST be a read-only mapping; with `read` it is a private copy. A copy counts as a hit and touches too.
-- Every failure of parsing, mapping or reading MUST be caught and counted. Python: changes in step 3. numpy raises `tokenize.TokenError` for some unparseable headers, which `attach` does not catch today, so it escapes to the caller (vector `reads.garbage_text`).
+- Every failure of parsing, mapping or reading MUST be caught and counted. Python conforms since pycommonkit 0.1.0 (A5): `attach` catches every exception but a missing file as torn. numpy raises `tokenize.TokenError` for some unparseable headers, which `attach` used to let escape to the caller (vector `reads.garbage_text`).
 
 ### 8.2 Touch
 
@@ -405,13 +405,13 @@ A **candidate** is a regular file (by `lstat`) whose path relative to the root m
 
 That is, the segment shape of §4 with the shard directory equal to the digest's first two characters. Nothing else under the root is ever unlinked by the reaper except orphaned temporary files (§9.5).
 
-Python: changes in step 3. Python's reaper treats any regular file ending in `.npy` anywhere under the root as a candidate (vectors `reaper_paths.shard_mismatch`, `too_shallow`, `too_deep`, `root_npy`, `no_variant`, `upper_digest`, `dot_dir`).
+Python conforms since pycommonkit 0.1.0 (A9). Its reaper used to treat any regular file ending in `.npy` anywhere under the root as a candidate (vectors `reaper_paths.shard_mismatch`, `too_shallow`, `too_deep`, `root_npy`, `no_variant`, `upper_digest`, `dot_dir`).
 
 ### 9.5 Orphaned temporary files (C6(b))
 
 During the walk the reaper unlinks every regular file in a segment directory (§4) whose name ends in `.tmp` and whose mtime is more than 3600 seconds before `now`. Such a file is left by a writer that crashed. Swept files are not candidates: they are not counted in `scanned`, in usage, or in `shm_reaped`. Temporary files anywhere else (the root, `.`-prefixed directories) are left alone.
 
-Python: changes in step 3 (vectors `reaper_paths.tmp_old`, `tmp_dot_old`).
+Python conforms since pycommonkit 0.1.0 (A9; vectors `reaper_paths.tmp_old`, `tmp_dot_old`).
 
 ### 9.6 Order and eviction
 
@@ -429,7 +429,7 @@ Python: changes in step 3 (vectors `reaper_paths.tmp_old`, `tmp_dot_old`).
 - The reaper counts `shm_reaped` (segments unlinked) and `shm_reaped_bytes` (their sizes), and reports `scanned`, `reaped`, `bytes` and `complete`.
 - **After a complete walk only**, it writes `.usage.json` as a JSON object `{"bytes": B, "files": N, "ts": T}`: `B` is `total` after eviction (an integer), `N` is candidates scanned minus reaped (an integer), and `T` is `now` in Unix seconds (a number). It writes `.usage.json.tmp` and renames it over `.usage.json`. A partial walk writes nothing and counts `shm_reap_partial`, because it would under-count.
 - The reaper invalidates the store's cached free-space figure.
-- **Reading** `.usage.json` (the budget gate, §6.2): it is **fresh** when `now − its mtime <= 2 × reap_interval_s`. It is **valid** when it is a JSON object whose `bytes` is a non-negative integer. A missing, stale or invalid file means usage is unknown, and the budget gate passes. Python: changes in step 3. Python also accepts a numeric string or a float for `bytes`.
+- **Reading** `.usage.json` (the budget gate, §6.2): it is **fresh** when `now − its mtime <= 2 × reap_interval_s`. It is **valid** when it is a JSON object whose `bytes` is a non-negative integer. A missing, stale or invalid file means usage is unknown, and the budget gate passes. Python conforms since pycommonkit 0.1.0 (A11). It used to accept a numeric string or a float for `bytes` too.
 
 ### 9.8 The rate limit
 
@@ -437,7 +437,7 @@ A store keeps the time of its last reap turn, initially zero. A **reap turn** (a
 
 ### 9.9 Free space
 
-Free bytes are `f_bavail × f_frsize` from `statvfs` on the root, cached for one second per store. If the figure cannot be obtained for any reason, free bytes are 0. (C6(e). Python: changes in step 3. Python catches only `OSError`, so a platform without `os.statvfs` raises `AttributeError`.)
+Free bytes are `f_bavail × f_frsize` from `statvfs` on the root, cached for one second per store. If the figure cannot be obtained for any reason, free bytes are 0. (C6(e). Python conforms since pycommonkit 0.1.0 (A10). It used to catch only `OSError`, so a platform without `os.statvfs` raised `AttributeError`. Where `os.statvfs` is missing it now asks `shutil.disk_usage`, whose POSIX branch is the same figure.)
 
 ## 10. Policy
 
@@ -458,7 +458,7 @@ Tree-wide policy applies to every segment in a tree, whichever process reaps, so
 
 - "Linux" means every non-macOS POSIX system. Windows: §12.
 - `trunc` truncates toward zero. Values are not range-checked in version 1: a negative TTL, for example, is accepted.
-- `FSYNC` and `VERIFY_REPUBLISH` are new. Python: changes in step 3.
+- `FSYNC` and `VERIFY_REPUBLISH` are new. Python conforms since pycommonkit 0.1.0 (A13).
 - On thresher the tree's policy is `ROOT=/Volumes/CommonkitStore/store`, `MAX_GB=7`, `MIN_FREE_GB=1`, `TTL_S=604800`.
 
 ### 10.2 Numbers
@@ -471,7 +471,7 @@ A number value, from the environment or a policy-file string, is **valid** when,
 
 and its value as an IEEE 754 double (round to nearest) is finite. For the byte-count settings the derived integer (`max_bytes`, `min_free_bytes`, `max_array_bytes`) must also lie in `[−2^63, 2^63 − 1]`. Anything else is **malformed**. An unset, empty or malformed value is ignored, and the next source applies (§10.6); it never raises.
 
-Python: changes in step 3. Python parses with `float()`, which also accepts `inf`, `nan`, `1_000`, non-ASCII digits and Unicode whitespace; and `int(float("inf"))` raises `OverflowError` (vectors `env.ttl_inf`, `env.ttl_underscore`, `env.ttl_arabic_digits`, `env.ttl_nbsp`, `env.max_array_inf`, `env.max_gb_huge`).
+Python conforms since pycommonkit 0.1.0 (A12). It used to parse with `float()`, which also accepts `inf`, `nan`, `1_000`, non-ASCII digits and Unicode whitespace; and `int(float("inf"))` raised `OverflowError` (vectors `env.ttl_inf`, `env.ttl_underscore`, `env.ttl_arabic_digits`, `env.ttl_nbsp`, `env.max_array_inf`, `env.max_gb_huge`).
 
 ### 10.3 Flags
 
@@ -494,7 +494,7 @@ A flag value is **on** when it equals `1`, `true`, `yes` or `on`, compared case-
   - a flag takes JSON `true` or `false`, or a string read under §10.3;
   - any other value (`null`, a boolean for a number, a number for a flag, an array, an object, a malformed string) is ignored for that key, which the file then **leaves out**.
 - Writers of the file (the maintainer, or a setup command) SHOULD write it by temp-then-rename.
-- Python: changes in step 3. Python reads no policy file today (vectors `policy.*`).
+- Python conforms since pycommonkit 0.1.0 (A14). It used to read no policy file (vectors `policy.*`).
 
 ### 10.6 Precedence
 
@@ -514,8 +514,8 @@ Implementations use these names, so a stats table can sum them across languages.
 |---|---|
 | `shm_hit`, `shm_miss`, `shm_torn` | §8.1 |
 | `shm_bad_key` | §6.2, §8.1 |
-| `shm_torn_replaced` (new; Python: changes in step 3) | §6.4 |
-| `shm_key_collision` (new; Python: changes in step 3) | §6.4 |
+| `shm_torn_replaced` (new; Python conforms since pycommonkit 0.1.0, A7) | §6.4 |
+| `shm_key_collision` (new; Python conforms since pycommonkit 0.1.0, A7) | §6.4 |
 | `shm_declined_mode`, `shm_declined_small`, `shm_declined_size`, `shm_declined_space`, `shm_declined_budget`, `shm_declined_dtype` | §6.2, §6.5 |
 | `shm_publish`, `shm_bytes_published` | §6.6 |
 | `shm_publish_failed` | §6.5 |
@@ -579,21 +579,21 @@ Several files describe an array as `{"descr", "shape", "order", "fill"}`:
 
 ## Appendix A. Where Python changes in step 3
 
-Each item is a clause above marked "Python: changes in step 3", with the vectors that test it. C6(d), trailing bytes, needs no change: Python already ignores them.
+Each item is a clause above that was marked "Python: changes in step 3", with the vectors that test it. All are done. C6(d), trailing bytes, needs no change: Python already ignores them.
 
 | # | Clause | Change | Vectors |
 |---|---|---|---|
 | A1 | §3.1 | **Done in pycommonkit 0.1.0.** Match keys, tokens and digests in full (no final newline) | `keys.build.digest_newline`, `keys.parse.trailing_newline` |
 | A2 | §3.2 | **Done in pycommonkit 0.1.0.** Variant patterns match the whole variant, and the variant must be a token | `keys.build.pattern_prefix_only`, `keys.build.pattern_breaks_grammar`, `keys.parse.pattern_prefix_only` |
 | A3 | §3.4 | **Done in pycommonkit 0.1.0.** Registry identity compares variant patterns | `keys.registry.other_pattern` |
-| A4 | §5.5 | Read headers up to 1 MiB (`max_header_size`); decline larger ones on publish | `reads.header_v1_large`, `reads.header_v2` |
-| A5 | §8.1 | `attach` catches every parse failure, `tokenize.TokenError` included | `reads.garbage_text` |
-| A6 | §6.3 | Decline object dtypes as `shm_declined_dtype` (C6(c)); leave no temporary file | `admission.free_object` |
-| A7 | §6.4 | The existing-key rule: replace torn, touch a republish, raise `KeyCollision`; counters `shm_torn_replaced`, `shm_key_collision`; option `verify_republish`, comparing named-field bytes only (§5.8) (C15). `cache.py` catches every exception from `publish` today, so it MUST let `KeyCollision` through | `existing_key.*` except `absent` |
-| A8 | §6.5 | The `fsync` option (C17) | `env.fsync_*`, `policy.fsync_*` |
-| A9 | §9.4, §9.5 | Reap only segment-shaped paths (C6(a)); sweep orphaned `.tmp` files over an hour old (C6(b)) | `reaper_paths.*` marked step3 |
-| A10 | §9.9 | Free space is 0 on any failure, `AttributeError` included (C6(e)) | None (Windows only) |
-| A11 | §9.7 | `.usage.json` `bytes` must be a JSON integer | None |
-| A12 | §10.2 | The number grammar: no `inf`, `nan`, `_`, non-ASCII digits or whitespace; derived byte counts in range | `env.ttl_*`, `env.max_array_inf`, `env.max_gb_huge` marked step3 |
-| A13 | §10.3 | The flags `FSYNC` and `VERIFY_REPUBLISH`, and store fields `fsync`, `verify_republish` | `env.fsync_*`, `env.verify_republish_*` |
-| A14 | §10.5, §10.6 | `.policy.json`, file over environment (C7); `shared.py` stops saying policy comes "only" from the environment | `policy.*` marked step3 |
+| A4 | §5.5 | **Done in pycommonkit 0.1.0.** Read headers up to 1 MiB (`max_header_size`); decline larger ones on publish | `reads.header_v1_large`, `reads.header_v2` |
+| A5 | §8.1 | **Done in pycommonkit 0.1.0.** `attach` catches every parse failure, `tokenize.TokenError` included | `reads.garbage_text` |
+| A6 | §6.3 | **Done in pycommonkit 0.1.0.** Decline object dtypes as `shm_declined_dtype` (C6(c)); leave no temporary file | `admission.free_object` |
+| A7 | §6.4 | **Done in pycommonkit 0.1.0.** The existing-key rule: replace torn, touch a republish, raise `KeyCollision`; counters `shm_torn_replaced`, `shm_key_collision`; option `verify_republish`, comparing named-field bytes only (§5.8) (C15). `cache.py`, which catches every other exception from `publish`, MUST (and does) let `KeyCollision` through | `existing_key.*` except `absent` |
+| A8 | §6.5 | **Done in pycommonkit 0.1.0.** The `fsync` option (C17) | `env.fsync_*`, `policy.fsync_*` |
+| A9 | §9.4, §9.5 | **Done in pycommonkit 0.1.0.** Reap only segment-shaped paths (C6(a)); sweep orphaned `.tmp` files over an hour old (C6(b)) | `reaper_paths.*` formerly marked step3 |
+| A10 | §9.9 | **Done in pycommonkit 0.1.0.** Free space is 0 on any failure, `AttributeError` included (C6(e)) | None (Windows only) |
+| A11 | §9.7 | **Done in pycommonkit 0.1.0.** `.usage.json` `bytes` must be a JSON integer | None |
+| A12 | §10.2 | **Done in pycommonkit 0.1.0.** The number grammar: no `inf`, `nan`, `_`, non-ASCII digits or whitespace; derived byte counts in range | `env.ttl_*`, `env.max_array_inf`, `env.max_gb_huge` formerly marked step3 |
+| A13 | §10.3 | **Done in pycommonkit 0.1.0.** The flags `FSYNC` and `VERIFY_REPUBLISH`, and store fields `fsync`, `verify_republish` | `env.fsync_*`, `env.verify_republish_*` |
+| A14 | §10.5, §10.6 | **Done in pycommonkit 0.1.0.** `.policy.json`, file over environment (C7); `shared.py` stops saying policy comes "only" from the environment | `policy.*` formerly marked step3 |

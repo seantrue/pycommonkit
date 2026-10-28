@@ -1,6 +1,6 @@
 # Status
 
-*Updated 2026-10-27.*
+*Updated 2026-10-28.*
 
 ## Where things stand
 
@@ -15,6 +15,13 @@
 - **Read back by copy:** `verify_republish` compares named-field bytes only; padding bytes, which a copying `np.load` zeroes, never decide a collision (contract §5.8, §6.4; vectors `existing_key.padded_*`).
 - **Ruff clean:** the four `try`/`except`/`pass` handlers in `cache.py` carry `noqa: S110` with the reason; `collections.abc.Iterable` and `X | None` in `keys.py` and `read.py`.
 
+## Step 3: Python to the contract (2026-10-28, branch `step3-python`, uncommitted)
+
+- **Appendix A4–A14 done**; every contract clause that read "Python: changes in step 3" now reads "Python conforms since pycommonkit 0.1.0 (A*n*)". No vector carries `"python": "step3"`; the generator still reproduces every fixture byte for byte (only the JSON's marks and three stale notes changed; no `.npy` fixture changed).
+- **Suite:** 548 passed, 0 xfailed (was 375 passed, 87 xfailed); `ruff check .` clean; clean under `-W error`.
+- **What changed:** `store.py` (headers to 1 MiB with a prefix check, broad torn handling, object dtypes and oversized headers declined, the existing-key rule with `KeyCollision` and `verify_republish`, `fsync` with `F_FULLFSYNC` on macOS, segment-shaped reaping and the `.tmp` sweep, free space 0 on any failure, integer-only `.usage.json`); `shared.py` (`.policy.json`, the number grammar, the flags); `cache.py` lets `KeyCollision` through.
+- **Behaviour a consumer may notice:** a different array under an existing key now raises `KeyCollision` instead of silently replacing the segment; a republish no longer counts `shm_publish`; `.npy` files outside the segment layout are no longer reaped; a `.policy.json` at the root now overrides the environment.
+
 ## Next
 
 1. **The maintainer accepts the contract** (plan step 2's exit). Open choices the contract made where the plan was silent, listed for confirmation:
@@ -26,6 +33,6 @@
    - A failed directory sync after the rename counts as a failed publish and leaves the segment in place.
    - Swept `.tmp` files are not counted.
    - Rust needs the `regex` crate for variant patterns (missing from the plan's dependency list).
-2. **Step 3:** Python to the contract (Appendix A; A1–A3, the key fixes, are done, including a real never-raise bug: a garbled header makes `tokenize.TokenError` escape `attach`).
+2. **Step 3 review and merge** (above).
 3. **Steps 4–10:** the Rust crate in `rust/`, cross-language conformance, then the ImpCraft and PlumCraft migrations.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.

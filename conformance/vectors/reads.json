@@ -233,8 +233,7 @@
      "shm_torn": 1
     }
    },
-   "note": "the header does not parse; numpy raises tokenize.TokenError, which Python's attach does not catch today",
-   "python": "step3"
+   "note": "the header does not parse; numpy raises tokenize.TokenError, which Python's attach let through before pycommonkit 0.1.0"
   },
   {
    "id": "negative_dim",
@@ -355,8 +354,7 @@
     "fortran_order": false,
     "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
    },
-   "note": "a header over 10000 bytes but within the contract's 1 MiB limit",
-   "python": "step3"
+   "note": "a header over 10000 bytes but within the contract's 1 MiB limit"
   },
   {
    "id": "header_v2",
@@ -374,8 +372,7 @@
     "fortran_order": false,
     "payload_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
    },
-   "note": "a header over 10000 bytes but within the contract's 1 MiB limit",
-   "python": "step3"
+   "note": "a header over 10000 bytes but within the contract's 1 MiB limit"
   },
   {
    "id": "header_over_limit",

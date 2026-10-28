@@ -67,3 +67,44 @@ def test_root_argument_is_for_tests(tmp_path):
 def test_attach_is_the_callers_choice(tmp_path):
     assert shared_store(root=tmp_path).attach_mode == "mmap"
     assert shared_store(root=tmp_path, attach="read").attach_mode == "read"
+
+
+# ------------------------------------------------- .policy.json and the grammar (C7)
+
+def test_the_policy_file_wins_over_the_environment(monkeypatch, tmp_path):
+    (tmp_path / ".policy.json").write_text('{"TTL_S": 604800, "FSYNC": true}')
+    monkeypatch.setenv(ENV_PREFIX + "TTL_S", "60")
+    monkeypatch.setenv(ENV_PREFIX + "MIN_FREE_GB", "1")
+    store = shared_store(root=tmp_path)
+    assert store.ttl_s == 604800.0 and store.fsync is True
+    assert store.min_free_bytes == 2**30                # the environment fills the rest
+
+
+def test_the_policy_file_is_read_once(tmp_path):
+    (tmp_path / ".policy.json").write_text('{"TTL_S": 100}')
+    store = shared_store(root=tmp_path)
+    (tmp_path / ".policy.json").write_text('{"TTL_S": 200}')
+    assert store.ttl_s == 100.0
+
+
+def test_only_a_top_level_duplicate_invalidates_the_file(tmp_path):
+    """The contract names the top level; a nested object is not a setting at all."""
+    (tmp_path / ".policy.json").write_text('{"X": {"a": 1, "a": 2}, "TTL_S": 100}')
+    assert shared_store(root=tmp_path).ttl_s == 100.0
+
+
+@pytest.mark.skipif(not hasattr(shared.os, "mkfifo"), reason="POSIX only")
+def test_a_fifo_named_policy_json_is_absent_and_does_not_block(tmp_path):
+    shared.os.mkfifo(tmp_path / ".policy.json")
+    assert shared.read_policy(tmp_path) == {}
+
+
+@pytest.mark.parametrize("raw", ["inf", "-inf", "nan", "1e999", "1_000", "١٢", " 5",
+                                 "0x10", "", " ", "5 5"])
+def test_a_malformed_number_never_raises(monkeypatch, tmp_path, raw):
+    """``int(float("inf"))`` raised OverflowError out of shared_store (contract §10.2)."""
+    for name in ("MAX_GB", "MIN_FREE_GB", "MAX_ARRAY_BYTES", "TTL_S", "REAP_S"):
+        monkeypatch.setenv(ENV_PREFIX + name, raw)
+    store = shared_store(root=tmp_path)
+    assert store.max_array_bytes == DEFAULTS["MAX_ARRAY_BYTES"]
+    assert store.ttl_s == DEFAULTS["TTL_S"]

@@ -6,10 +6,12 @@ times on an 18-face page) would pay one ~3 ms attach per call. At 36 lookups tha
 times SLOWER than no cache at all. L1 memoises the attached MAPPING -- it adds
 no bytes, it removes syscalls.
 """
+import io
+
 import numpy as np
 import pytest
 
-from commonkit import KeyScheme, SharedArrayStore, TieredPixelCache, register
+from commonkit import KeyCollision, KeyScheme, SharedArrayStore, TieredPixelCache, register
 
 D1 = "ab" * 16
 
@@ -101,3 +103,17 @@ def test_drain_takes_the_stores_counters_too(tiers):
     drained = tiers.drain_stats()
     assert drained["shm_publish"] == 1
     assert tiers.drain_stats()["shm_publish"] == 0        # reset, not copied
+
+
+def test_a_key_collision_reaches_the_caller_through_the_cache(tiers):
+    """The cache swallows every other publish failure, but it MUST let KeyCollision
+    through (contract Appendix A7): hidden, a broken digest serves two contents
+    under one key."""
+    tiers.set_array(KEY, _wave())
+    with pytest.raises(KeyCollision):
+        tiers.set_array(KEY, _wave()[:100_000])
+    buf = io.BytesIO()
+    np.save(buf, _wave()[:150_000])
+    with pytest.raises(KeyCollision):
+        tiers.set(KEY, buf.getvalue())
+    tiers.set(KEY, b"not an npy")                       # undecodable is still a miss

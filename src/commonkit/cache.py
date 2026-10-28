@@ -23,6 +23,8 @@ from collections import Counter
 
 import numpy as np
 
+from .store import KeyCollision
+
 
 class TieredPixelCache:
     """Satisfies the consumer's ``PixelCache`` protocol.
@@ -81,7 +83,7 @@ class TieredPixelCache:
         return None, "decode"
 
     def set_array(self, key: str, arr) -> None:
-        """Called by ``_base_array`` after a decode. Never raises."""
+        """Called by ``_base_array`` after a decode. Raises only :class:`KeyCollision`."""
         if self.l1 is not None:
             try:
                 self.l1.set_array(key, arr)
@@ -91,6 +93,10 @@ class TieredPixelCache:
             try:
                 if not self.l2.publish(key, arr):
                     self.stats["shm_declined"] += 1
+            except KeyCollision:
+                # The one exception that must reach the caller (contract §6.4): a
+                # broken key scheme hidden here would serve two contents under one key.
+                raise
             except Exception:                                  # noqa: BLE001
                 self.stats["shm_publish_failed"] += 1
 
@@ -99,9 +105,10 @@ class TieredPixelCache:
         ``set_array`` and will not normally reach this."""
         try:
             import io
-            self.set_array(key, np.load(io.BytesIO(value), allow_pickle=False))
-        except Exception:  # noqa: BLE001, S110 -- undecodable bytes are a miss: the cache never raises
-            pass
+            arr = np.load(io.BytesIO(value), allow_pickle=False)
+        except Exception:  # noqa: BLE001 -- undecodable bytes are a miss: the cache never raises
+            return
+        self.set_array(key, arr)    # outside the try, so a KeyCollision gets out
 
     def drain_stats(self) -> Counter:
         """Take and reset counters, including the store's own."""
