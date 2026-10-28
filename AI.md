@@ -60,6 +60,8 @@ Checked: Rust 135 passed with and without `mmap`, clippy clean on macOS and for 
 
 **README** (the maintainer: "Update the README to reflect this clearly. Do not mention consumers by name", after asking why a caller must be able to recompute a value the cache doesn't hold). The AI rewrote the invariant section as "A cache, not a store of record": the store promises a present key names the right bytes, never that a key is present; every reason a segment can be absent; what that buys; the only two things that raise; keeping a durable copy of anything that can't be recomputed; and that callers never need `.usage.json`. Also removed two stale lines (the Rust crate as "planned", Python as catching up with the contract).
 
+**The Fortran comparison** (the maintainer: "Refine the readme comparison to fortran named common"). The AI's earlier wording was wrong: it called a `COMMON` block a region shared by "separately compiled programs" that "outlives whoever wrote it". A named `COMMON` block is shared by the program units of one executable, joined by name at link time, and lives for that run. The README now says so, and lists where commonkit is stricter: across processes, the layout carried in the header (with `KeyCollision`), write-once and read-only, and possibly absent.
+
 ### 2026-10-28 — Step 6: the Rust store; two Python defects the port found (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the maintainer asked for.** "Go" for step 6, then "Go" for the AI's proposed follow-ups.

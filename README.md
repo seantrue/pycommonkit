@@ -8,9 +8,26 @@ to an unrelated project). A Rust crate, `commonkit`, implementing the same on-di
 in this repository under `rust/` (`docs/rust-crate-plan.md`): keys, segments, the store and the
 reaper are done; cross-language conformance tests come next.
 
-The name is for Fortran's `COMMON` block: a named region several separately
-compiled programs agree to share. That is exactly the contract here — the name
-is the whole interface, and the segment outlives whoever wrote it.
+The name is for Fortran's **named `COMMON` block**. `COMMON /GRID/ X, Y` in one
+subroutine and the same name in another, compiled separately, give both the same
+storage: the linker joins them by the name alone, and no unit owns the block. The
+name is the whole interface. A commonkit key is the same idea: any process that
+can spell the key reaches the same bytes, without knowing who wrote them.
+
+Where the analogy stops is where commonkit had to be stricter:
+
+* **Across processes, not within one program.** A `COMMON` block is shared by the
+  program units of one executable; a segment is shared by separate processes.
+* **The layout travels with the data.** Each Fortran unit declares its own view
+  of a block, and a unit that declares it differently silently reads other
+  variables' bits. A segment carries its dtype, shape and order in its `.npy`
+  header, so every reader sees the same layout, and publishing a different array
+  under an existing key is refused loudly (`KeyCollision`).
+* **Written once, then read-only.** Any unit may assign into a `COMMON` block at
+  any time. A segment is written once, whole, and readers map it read-only.
+* **It may not be there.** A `COMMON` block exists for the whole run. A segment
+  exists only until the reaper needs the space, which is why every caller must be
+  able to recompute it (below).
 
 ## The contract
 
