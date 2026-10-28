@@ -56,7 +56,7 @@ inside a non-public application first.
 - The first pandoc preview added a title heading GitHub would not show; re-rendered with `pagetitle`.
 - The first NAIP tile (York, Nebraska) was a town edge with no pivots: wrong target, replaced.
 - The AI tried to query the Flickr API with a key scraped from Flickr's page; the session's permission classifier blocked it, and the search used public pages only.
-- "The impressionist" was read as all the renderings (there is no file of that name) and all are put under MIT; the maintainer has not yet confirmed that reading.
+- "The impressionist" was read as all the renderings (there is no file of that name) and all are put under MIT. The maintainer then said the renderings were made with The Virtual Impressionist (www.virtimp.com), which `icons/README.md` now credits.
 
 Not run: the test suite and ruff (no code changed).
 

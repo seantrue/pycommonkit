@@ -1,7 +1,8 @@
 # icons
 
 Artwork for the pycommonkit logo and README banner: a straight-down aerial
-photograph of farmland, and stylized renderings of it. Square fields and
+photograph of farmland, and stylized renderings of it made with
+[The Virtual Impressionist](https://www.virtimp.com/). Square fields and
 center-pivot circles share one road grid, as named segments share one store.
 
 ## Files
@@ -53,10 +54,13 @@ EXIF metadata.
 
 ## Renderings
 
-The `commons-*.jpg` renderings are Copyright (c) 2026 Sean D. True and are
-available under the **MIT License**, the same license as pycommonkit itself;
-the full text is in [`../LICENSE`](../LICENSE). Under MIT, keep the copyright
-notice and license text with substantial copies of a rendering.
+The `commons-*.jpg` renderings were made from the source photograph with
+[The Virtual Impressionist](https://www.virtimp.com/).
+
+They are Copyright (c) 2026 Sean D. True and are available under the **MIT
+License**, the same license as pycommonkit itself; the full text is in
+[`../LICENSE`](../LICENSE). Under MIT, keep the copyright notice and license
+text with substantial copies of a rendering.
 
 The MIT License covers only what the renderings add. The underlying
 photograph remains in the public domain, as above.
