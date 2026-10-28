@@ -43,6 +43,25 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Step 7: the Rust reaper; a reaper race and a symlink truncation fixed in both languages (Claude Opus 5.5, Claude Code, with one delegated agent)
+
+**What the maintainer asked for.** "Go" for step 7, "What is .usage.json.tmp", then "Go for fix".
+
+**What the agent did.** `rust/commonkit/src/store/reap.rs` (about 430 lines): refusals, the `O_EXCL` lock with the pid and the 300 s break, the walk without following symlinks with the deadline before each directory, candidates by segment shape, the `.tmp` sweep, eviction toward both targets, `.usage.json` after a complete walk only, the counters and the per-store rate limit; `Store::reap(budget) -> ReapReport`. Publishing now really reaps (C9). About 780 lines of tests: the eight Python reaper tests under the same names, bystanders (non-segments, dot-names, `.pinned/`, symlinks), the 16 reaper-path vectors, a mapping surviving the reaper, stale and held locks, and eight concurrent reapers reaching one reaper's result. Rust was already stricter than Python: per-candidate unlink failures counted, `lstat` for the lock's age, the usage temp file created exclusively.
+
+**Defects the agent found in Python and the contract, fixed by the AI.**
+
+- **Racing reapers over-evicted** (contract §9.2 called the race "harmless"). An ENOENT was skipped without counting the segment toward the targets, so after a broken stale lock two reapers took six segments to none against a low water mark of two. An already-gone segment now counts as freed but not reaped, in Python, Rust and the contract (`ReapReport::gone` in Rust; `.usage.json`'s `files` excludes it). A test in each language fails without the fix (checked by reverting it).
+- **Python wrote through a symlink.** `open(".usage.json.tmp", "w")` followed a symlink planted there and truncated its target, which for a mapped segment is SIGBUS for every reader: it broke both "never follow symlinks" and "never truncate". It is now created with `O_CREAT | O_EXCL | O_NOFOLLOW` after removing any leftover. A test fails on the old code.
+- **A weak test** from earlier AI work: `test_a_declined_publish_still_reaps` held only because three reap turns' counts added up; it now ages the segments after publishing so only the decline's own turn can reap.
+- Per-candidate unlink failures count `shm_reap_failed` in Python too, matching Rust; the contract says so.
+
+Checked: Rust 135 passed with and without `mmap`, clippy clean on macOS and for `x86_64-pc-windows-msvc`, fmt; Python 553 passed, ruff clean.
+
+**README** (the maintainer: "Update the README to reflect this clearly. Do not mention consumers by name", after asking why a caller must be able to recompute a value the cache doesn't hold). The AI rewrote the invariant section as "A cache, not a store of record": the store promises a present key names the right bytes, never that a key is present; every reason a segment can be absent; what that buys; the only two things that raise; keeping a durable copy of anything that can't be recomputed; and that callers never need `.usage.json`. Also removed two stale lines (the Rust crate as "planned", Python as catching up with the contract).
+
+**The Fortran comparison** (the maintainer: "Refine the readme comparison to fortran named common"). The AI's earlier wording was wrong: it called a `COMMON` block a region shared by "separately compiled programs" that "outlives whoever wrote it". A named `COMMON` block is shared by the program units of one executable, joined by name at link time, and lives for that run. The README now says so, and lists where commonkit is stricter: across processes, the layout carried in the header (with `KeyCollision`), write-once and read-only, and possibly absent.
+
 ### 2026-10-28 — Step 6: the Rust store; two Python defects the port found (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the maintainer asked for.** "Go" for step 6, then "Go" for the AI's proposed follow-ups.

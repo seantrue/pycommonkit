@@ -772,6 +772,7 @@ class SharedArrayStore:
             low_water = int(0.8 * self.max_bytes)
             need_free = max(0, int(1.25 * self.min_free_bytes) - self._free_bytes(fresh=True))
             freed = 0
+            gone = 0
             for mtime, size, p in entries:
                 expired = (now - mtime) > self.ttl_s
                 over = complete and total > low_water
@@ -783,7 +784,19 @@ class SharedArrayStore:
                 # that cut eviction short left a store 1.2 GB over its low water mark.
                 try:
                     os.unlink(p)
+                except FileNotFoundError:
+                    # Another reaper took it (C8). It has left the tree all the same, so it
+                    # counts toward both targets (contract §9.6): not counting it let two
+                    # racing reapers take six segments to none against a low water mark of
+                    # two. It isn't this reaper's eviction, so no counter and no bytes.
+                    gone += 1
+                    total -= size
+                    freed += size
+                    continue
                 except OSError:
+                    # Skipped and counted, then on to the next candidate (§9.6). On Windows
+                    # this is a segment some reader has open or mapped (§12).
+                    self.stats["shm_reap_failed"] += 1
                     continue
                 total -= size
                 freed += size
@@ -795,9 +808,19 @@ class SharedArrayStore:
                 try:
                     import json
                     tmp = os.path.join(self.root, ".usage.json.tmp")
-                    with open(tmp, "w") as fh:
+                    # Created exclusively, after removing any leftover: ``open(tmp, "w")``
+                    # followed a symlink planted at this name and truncated its target, and
+                    # a truncated segment is SIGBUS for every reader that has it mapped
+                    # (§7: never truncate, never follow a symlink).
+                    try:
+                        os.unlink(tmp)
+                    except FileNotFoundError:
+                        pass
+                    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                                 | getattr(os, "O_NOFOLLOW", 0), 0o644)
+                    with os.fdopen(fd, "w") as fh:
                         json.dump({"bytes": total,
-                                   "files": out["scanned"] - out["reaped"],
+                                   "files": out["scanned"] - out["reaped"] - gone,
                                    "ts": now}, fh)
                     os.replace(tmp, os.path.join(self.root, ".usage.json"))
                 except OSError:

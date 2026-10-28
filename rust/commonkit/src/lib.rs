@@ -52,4 +52,4 @@ pub use keys::{Key, KeyError, KeyScheme, Registry, Variants};
 pub use npy::{Descr, Order};
 pub use policy::{Policy, shared_store, shared_store_at};
 pub use segment::{AttachMode, Element, Scalar, Segment};
-pub use store::{ArrayRef, Counter, KeyCollision, Mode, Options, Stats, Store, Usage};
+pub use store::{ArrayRef, Counter, KeyCollision, Mode, Options, ReapReport, Stats, Store, Usage};

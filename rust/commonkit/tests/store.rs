@@ -5,13 +5,8 @@
 //! The store is addressed through an audio scheme, as in Python, to prove it is generic. The
 //! scheme registry is process-global, so this file's domain (`ckaudio`) is its own.
 //!
-//! Python tests of the reaper itself are step 7 and not ported here: `test_reaper_refuses_a_
-//! suspicious_root`, `test_reaper_only_touches_its_own_segments`, `test_reaper_leaves_fresh_
-//! segments_alone`, `test_over_budget_evicts_least_recently_used_first`, `test_expired_
-//! segments_are_reaped`, `test_the_free_space_floor_evicts_least_recently_used`, `test_
-//! eviction_reaches_its_target_whatever_the_time_budget` and `test_a_partial_walk_neither_
-//! evicts_for_budget_nor_writes_usage`. `test_a_declined_publish_still_reaps` is ported as far
-//! as step 6 goes: the decline takes a reap turn.
+//! The reaper (contract §9, step 7) is tested here too: Python's reaper tests keep their names,
+//! and the refusal, bystander, lock, concurrency and mapping tests are Rust's own.
 
 mod common;
 
@@ -418,21 +413,42 @@ fn turn_counter() -> (Arc<AtomicUsize>, Hooks) {
     (turns, hooks)
 }
 
-/// Python's `test_a_declined_publish_still_reaps`, as far as step 6 goes: a space decline takes
-/// a reap turn, as a publish does. (The reaper behind the turn is step 7.)
+/// The reaper used to run only after a successful publish: a full store declined forever and was
+/// never reaped again. A space decline takes a reap turn, and the turn reaps.
 #[test]
 fn test_a_declined_publish_still_reaps() {
+    let (_d, s) = store();
+    let ks = keys_n(3);
+    // Publish all, then age: with reap_interval_s = 0 each publish reaps, so aging inside the
+    // loop (as Python's test does) has the later publishes reap the earlier segments.
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap();
+    }
+    for k in &ks {
+        age(&s.path_for(k).unwrap(), 2.0 * s.options().ttl_s);
+    }
+    let seg = file_size(&s, &ks[0]);
+    s.drain_stats();
     let (turns, mut hooks) = turn_counter();
     hooks.free_bytes = Some(Arc::new(|_: &Path| Some(4096)));
-    let (_d, s) = store_with(
+    let full = again(
+        &s,
         Options {
             min_free_bytes: 1 << 30,
             ..options()
         },
-        hooks,
+    )
+    .with_hooks(hooks);
+    let k = key_in(&"ef".repeat(16), "wav16k");
+    assert_eq!(full.publish(&k, wave(200_000).r()), Ok(false));
+    assert_eq!(
+        stats(&full),
+        [
+            ("shm_declined_space", 1),
+            ("shm_reaped", 3),
+            ("shm_reaped_bytes", 3 * seg)
+        ]
     );
-    assert_eq!(s.publish(&key(), wave(200_000).r()), Ok(false));
-    assert_eq!(stats(&s), [("shm_declined_space", 1)]);
     assert_eq!(turns.load(Ordering::SeqCst), 1);
 }
 
@@ -1044,4 +1060,710 @@ fn threads_share_one_store() {
         }
     });
     assert!(tmp_files(s.root()).is_empty());
+}
+
+// ------------------------------------------------------------------- the reaper (§9)
+// (2026-10-16: none of the LRU eviction was tested in Python, and a store sat full for 5.7 days
+// with 1,104 expired segments because nothing ever reaped it again.)
+
+const BUDGET: Duration = Duration::from_secs(5);
+
+fn keys_n(n: usize) -> Vec<String> {
+    (0..n)
+        .map(|i| key_in(&format!("{i:032x}"), "wav16k"))
+        .collect()
+}
+
+fn file_size(s: &Store, k: &str) -> u64 {
+    std::fs::metadata(s.path_for(k).unwrap()).unwrap().len()
+}
+
+/// Another store on `s`'s tree with other settings: how Python's tests change `store.ttl_s` or
+/// `store.max_bytes` after publishing, and how a second process sees the same tree.
+fn again(s: &Store, o: Options) -> Store {
+    let t = Store::new(s.root(), o);
+    assert!(!t.is_disabled());
+    t
+}
+
+fn present(s: &Store, ks: &[String]) -> Vec<bool> {
+    ks.iter().map(|k| s.path_for(k).unwrap().exists()).collect()
+}
+
+/// Every path under `root` (files, links and directories), relative and sorted.
+fn tree(root: &Path) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut stack = vec![root.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).unwrap().flatten() {
+            let p = e.path();
+            out.push(p.strip_prefix(root).unwrap().to_string_lossy().into_owned());
+            if e.file_type().unwrap().is_dir() {
+                stack.push(p);
+            }
+        }
+    }
+    out.sort();
+    out
+}
+
+#[cfg(unix)]
+#[test]
+fn test_reaper_refuses_a_suspicious_root() {
+    // `/tmp` has one separator: refused (contract §9.1). Python's test sets the root to `/`
+    // after construction; that exact case is a unit test in src/store/reap.rs.
+    let s = Store::new(
+        "/tmp",
+        Options {
+            mode: Mode::ReadWrite,
+            min_free_bytes: 1,
+            ..Options::default()
+        },
+    );
+    if !s.is_disabled() {
+        assert_eq!(s.reap(BUDGET).reaped, 0);
+        assert_eq!(stats(&s), [("shm_reap_refused", 1)]);
+    }
+}
+
+#[test]
+fn a_disabled_store_does_not_reap() {
+    for s in [
+        Store::new("", options()),
+        Store::new(
+            tempfile::tempdir().unwrap().path(),
+            Options {
+                mode: Mode::Off,
+                ..options()
+            },
+        ),
+    ] {
+        assert!(s.is_disabled());
+        assert_eq!(s.reap(BUDGET), commonkit::ReapReport::default());
+        assert!(s.drain_stats().is_empty());
+    }
+}
+
+#[test]
+fn test_reaper_only_touches_its_own_segments() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    let bystander = s.root().join("IMPORTANT.txt");
+    std::fs::write(&bystander, "not a segment").unwrap();
+    let r = again(
+        &s,
+        Options {
+            ttl_s: -1.0,
+            ..options()
+        },
+    );
+    r.reap(BUDGET);
+    assert!(bystander.exists());
+    assert!(s.attach(&key()).is_none());
+}
+
+#[test]
+fn test_reaper_leaves_fresh_segments_alone() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    assert_eq!(s.reap(BUDGET).reaped, 0);
+    assert!(s.attach(&key()).is_some());
+}
+
+#[test]
+fn test_over_budget_evicts_least_recently_used_first() {
+    let (_d, s) = store();
+    let ks = keys_n(6);
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap(); // 400 kB each
+    }
+    for (i, k) in ks.iter().enumerate() {
+        age(&s.path_for(k).unwrap(), 600.0 - i as f64 * 60.0); // ks[0] oldest, within TTL
+    }
+    assert!(s.attach(&ks[0]).is_some(), "a read refreshes it (LRU)");
+    let r = again(
+        &s,
+        Options {
+            max_bytes: 3 * 400_000, // low water: 2 files (plus headers)
+            ..options()
+        },
+    );
+    let out = r.reap(BUDGET);
+    assert!(out.complete);
+    assert_eq!((out.scanned, out.reaped), (6, 4));
+    assert_eq!(present(&s, &ks), [true, false, false, false, false, true]);
+}
+
+#[test]
+fn test_expired_segments_are_reaped() {
+    let (_d, s) = store();
+    let ks = keys_n(3);
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap();
+    }
+    age(&s.path_for(&ks[1]).unwrap(), 2.0 * s.options().ttl_s);
+    s.reap(BUDGET);
+    assert_eq!(present(&s, &ks), [true, false, true]);
+}
+
+/// A volume smaller than max_bytes + min_free_bytes fills before the budget does; the floor used
+/// to decline publishes without evicting anything.
+#[test]
+fn test_the_free_space_floor_evicts_least_recently_used() {
+    let (_d, s) = store();
+    let ks = keys_n(4);
+    for (i, k) in ks.iter().enumerate() {
+        s.publish(k, wave(200_000).r()).unwrap();
+        age(&s.path_for(k).unwrap(), 600.0 - i as f64 * 60.0); // ks[0] oldest, within TTL
+    }
+    let seg = file_size(&s, &ks[0]);
+    let r = again(
+        &s,
+        Options {
+            max_bytes: 1 << 40,         // far under budget
+            min_free_bytes: seg as i64, // floor + 25%: 1.25 segments
+            ..options()
+        },
+    )
+    .with_hooks(Hooks {
+        free_bytes: Some(Arc::new(|_: &Path| Some(0))),
+        ..Hooks::default()
+    });
+    let out = r.reap(BUDGET);
+    assert_eq!(out.reaped, 2, "the two least recently used");
+    assert_eq!(present(&s, &ks), [false, false, true, true]);
+}
+
+/// The time budget bounds the walk, not the eviction: a budget that cut eviction short once left
+/// a store 1.2 GB over its low water mark. Here the first unlink takes longer than the budget.
+#[test]
+fn test_eviction_reaches_its_target_whatever_the_time_budget() {
+    let (_d, s) = store();
+    let ks = keys_n(6);
+    for (i, k) in ks.iter().enumerate() {
+        s.publish(k, wave(200_000).r()).unwrap();
+        age(&s.path_for(k).unwrap(), 600.0 - i as f64 * 60.0);
+    }
+    let first = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let max_bytes = 3 * 400_000;
+    let r = again(
+        &s,
+        Options {
+            max_bytes,
+            ..options()
+        },
+    )
+    .with_hooks(Hooks {
+        reap_unlink: Some(Arc::new(move |p: &Path| {
+            if first.swap(false, Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(300));
+            }
+            std::fs::remove_file(p)
+        })),
+        ..Hooks::default()
+    });
+    let out = r.reap(Duration::from_millis(100));
+    assert!(out.complete);
+    assert!(out.reaped >= 2);
+    let used: u64 = ks
+        .iter()
+        .map(|k| s.path_for(k).unwrap())
+        .filter(|p| p.exists())
+        .map(|p| std::fs::metadata(p).unwrap().len())
+        .sum();
+    assert!(used <= (0.8 * max_bytes as f64) as u64);
+}
+
+/// A walk cut short under-counts the tree: it must not record that total, nor evict for a
+/// budget it can't judge. Here the walk is past its deadline from the first directory on.
+#[test]
+fn test_a_partial_walk_neither_evicts_for_budget_nor_writes_usage() {
+    let (_d, s) = store();
+    for k in keys_n(3) {
+        s.publish(&k, wave(200_000).r()).unwrap();
+    }
+    let marker = s.root().join(".usage.json");
+    let _ = std::fs::remove_file(&marker);
+    let r = again(
+        &s,
+        Options {
+            max_bytes: 1, // "over budget" if it were judged
+            ..options()
+        },
+    )
+    .with_hooks(Hooks {
+        reap_dir: Some(Arc::new(|_: &Path| {
+            std::thread::sleep(Duration::from_millis(100));
+        })),
+        ..Hooks::default()
+    });
+    let out = r.reap(Duration::from_millis(20));
+    assert!(!out.complete);
+    assert!(!marker.exists());
+    assert_eq!(out.reaped, 0);
+    assert_eq!(stats(&r), [("shm_reap_partial", 1)]);
+}
+
+/// A walk cut short after it found segments still serves expiry; it only stops judging the
+/// byte budget (contract §9.6).
+#[test]
+fn a_partial_walk_still_reaps_what_it_found_expired() {
+    let (_d, s) = store();
+    let ks = [key_in(D1, "wav16k"), key_in(D2, "wav16k")];
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap();
+    }
+    for k in &ks {
+        age(&s.path_for(k).unwrap(), 2.0 * s.options().ttl_s);
+    }
+    let calls = Arc::new(AtomicUsize::new(0));
+    let c = Arc::clone(&calls);
+    let r = again(&s, options()).with_hooks(Hooks {
+        // root, wav16k, ab: fast; the next shard directory is past the deadline.
+        reap_dir: Some(Arc::new(move |_: &Path| {
+            if c.fetch_add(1, Ordering::SeqCst) == 3 {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        })),
+        ..Hooks::default()
+    });
+    let out = r.reap(Duration::from_millis(50));
+    assert!(!out.complete);
+    assert_eq!((out.scanned, out.reaped), (1, 1));
+    assert_eq!(present(&s, &ks).iter().filter(|p| **p).count(), 1);
+}
+
+#[test]
+fn a_complete_walk_writes_usage_the_budget_gate_reads() {
+    let (_d, s) = store();
+    let ks = keys_n(3);
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap();
+    }
+    age(&s.path_for(&ks[0]).unwrap(), 2.0 * s.options().ttl_s);
+    let seg = file_size(&s, &ks[1]);
+    let out = s.reap(BUDGET);
+    assert!(out.complete);
+    assert_eq!((out.scanned, out.reaped, out.bytes), (3, 1, seg));
+    let text = std::fs::read_to_string(s.root().join(".usage.json")).unwrap();
+    let doc: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(doc["bytes"].as_u64(), Some(2 * seg));
+    assert_eq!(doc["files"].as_u64(), Some(2));
+    assert!(doc["ts"].is_f64());
+    // reap_interval_s = 0 makes every .usage.json stale to `s`; a reader with 30 s trusts it.
+    let usage = again(
+        &s,
+        Options {
+            reap_interval_s: 30.0,
+            ..options()
+        },
+    )
+    .usage()
+    .unwrap();
+    assert_eq!((usage.bytes, usage.files), (2 * seg, Some(2)));
+    assert!(!s.root().join(".usage.json.tmp").exists());
+    assert!(
+        !s.root().join(".reap.lock").exists(),
+        "the lock is released"
+    );
+}
+
+/// The reaper writes its pid into the lock while it holds it, and releases it on every exit.
+#[test]
+fn the_lock_holds_the_pid_while_reaping() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let lock = s.root().join(".reap.lock");
+    let (seen2, lock2) = (Arc::clone(&seen), lock.clone());
+    let r = again(&s, options()).with_hooks(Hooks {
+        reap_dir: Some(Arc::new(move |_: &Path| {
+            seen2
+                .lock()
+                .unwrap()
+                .push(std::fs::read_to_string(&lock2).ok());
+        })),
+        ..Hooks::default()
+    });
+    assert!(r.reap(BUDGET).complete);
+    let pid = std::process::id().to_string();
+    let seen = seen.lock().unwrap();
+    assert!(!seen.is_empty());
+    assert!(seen.iter().all(|t| t.as_deref() == Some(pid.as_str())));
+    assert!(!lock.exists());
+}
+
+/// A held lock means no reap; a lock over 300 s old is broken, and that turn still doesn't
+/// reap (contract §9.2, C8); the next one does.
+#[test]
+fn a_held_lock_is_respected_and_a_stale_one_broken() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    let r = again(
+        &s,
+        Options {
+            ttl_s: -1.0,
+            ..options()
+        },
+    );
+    let lock = s.root().join(".reap.lock");
+    std::fs::write(&lock, "99999").unwrap();
+    age(&lock, 200.0);
+    assert_eq!(r.reap(BUDGET), commonkit::ReapReport::default());
+    assert!(lock.exists(), "a lock 200 s old is held");
+    assert!(s.path_for(&key()).unwrap().exists());
+
+    age(&lock, 301.0);
+    assert_eq!(r.reap(BUDGET), commonkit::ReapReport::default());
+    assert!(!lock.exists(), "a lock over 300 s old is broken");
+    assert!(
+        s.path_for(&key()).unwrap().exists(),
+        "and that turn doesn't reap"
+    );
+    assert!(r.drain_stats().is_empty());
+
+    let out = r.reap(BUDGET);
+    assert_eq!((out.reaped, out.complete), (1, true));
+    assert!(!s.path_for(&key()).unwrap().exists());
+}
+
+/// Nothing but a regular file of the segment shape is ever unlinked: not non-segment files, not
+/// reserved dot-names, not symbolic links or what they point at, not files outside the shape,
+/// not a `.pinned/` subtree, and not a tree behind a symlinked directory.
+#[test]
+fn bystanders_are_left_alone() {
+    let (d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    let seg = s.path_for(&key()).unwrap();
+    let root = s.root().to_path_buf();
+    let name = seg.file_name().unwrap().to_owned();
+    let write = |rel: &str| {
+        let p = root.join(rel);
+        std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+        std::fs::write(&p, [0u8; 64]).unwrap();
+        age(&p, 7200.0);
+    };
+    let others = [
+        "IMPORTANT.txt",
+        "notes.npy",
+        "orphan.tmp",
+        ".policy.json",
+        ".hello/x.tmp",
+        ".pinned/wav16k/ab/abababababababababababababababab.sr16000.npy",
+        "wav16k/ab/readme.txt",
+        "wav16k/ab/abababababababababababababababab.npy",
+        "wav16k/ab/ABABABABABABABABABABABABABABABAB.sr16000.npy",
+        "wav16k/cd/abababababababababababababababab.sr16000.npy",
+        "wav16k/ab/x/abababababababababababababababab.sr16000.npy",
+        "x/wav16k/ab/abababababababababababababababab.sr16000.npy",
+        "Wav16k/ab/abababababababababababababababab.sr16000.npy",
+        "wav16k/AB/abababababababababababababababab.sr16000.npy",
+    ];
+    for rel in others {
+        write(rel);
+    }
+    // A segment-shaped directory where a file should be: not a regular file.
+    std::fs::create_dir_all(root.join("wav16k/ab/abababababababababababababababac.sr1.npy"))
+        .unwrap();
+    // Outside the root: a segment-shaped tree, reached only through symbolic links.
+    let outside = d.path().join("outside");
+    let target = outside.join("ab").join(&name);
+    std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+    std::fs::write(&target, [0u8; 64]).unwrap();
+    age(&target, 7200.0);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::symlink;
+        symlink(&outside, root.join("linked")).unwrap(); // a form-shaped link to a directory
+        symlink(outside.join("ab"), root.join("wav16k/ef")).unwrap(); // a shard-shaped link
+        symlink(
+            &target,
+            root.join("wav16k/ab/abababababababababababababababad.sr16000.npy"),
+        )
+        .unwrap();
+        symlink(&target, root.join(".usage.json.tmp")).unwrap(); // never written through
+    }
+    let before = tree(&root);
+
+    let r = again(
+        &s,
+        Options {
+            ttl_s: -1.0,
+            ..options()
+        },
+    );
+    let out = r.reap(BUDGET);
+    assert!(out.complete);
+    assert_eq!((out.scanned, out.reaped), (1, 1));
+    assert!(!seg.exists());
+    assert_eq!(
+        stats(&r),
+        [("shm_reaped", 1), ("shm_reaped_bytes", out.bytes)]
+    );
+    // Gone: the segment, and the link planted at `.usage.json.tmp` (replaced, then renamed to
+    // `.usage.json`). Everything else is as it was.
+    let seg_rel = seg
+        .strip_prefix(&root)
+        .unwrap()
+        .to_string_lossy()
+        .into_owned();
+    let mut expected: Vec<String> = before
+        .into_iter()
+        .filter(|p| *p != seg_rel && p != ".usage.json.tmp" && p != ".usage.json")
+        .chain([".usage.json".to_owned()])
+        .collect();
+    expected.sort();
+    assert_eq!(tree(&root), expected);
+    assert_eq!(std::fs::read(&target).unwrap(), [0u8; 64], "never followed");
+}
+
+/// A reader's mapping outlives the reaper unlinking its file (contract §7): the reaper never
+/// needs to know who is attached. (Without the `mmap` feature the reader holds a copy.)
+#[test]
+fn a_mapping_survives_the_reaper() {
+    let (_d, s) = store();
+    let a = wave(200_000);
+    s.publish(&key(), a.r()).unwrap();
+    let held = s.attach(&key()).unwrap();
+    let r = again(
+        &s,
+        Options {
+            ttl_s: -1.0,
+            ..options()
+        },
+    );
+    assert_eq!(r.reap(BUDGET).reaped, 1);
+    assert!(!s.path_for(&key()).unwrap().exists());
+    assert_eq!(held.bytes(), a.data.as_slice());
+    assert_eq!(held.element(&[3000]), Some(Element::Int(3000)));
+    assert!(s.attach(&key()).is_none());
+}
+
+/// A file already gone when the reaper unlinks it (another reaper got there, C8) is skipped:
+/// not counted reaped, not a failure. Here a second reaper runs to completion inside the first
+/// one's first unlink, as after a broken stale lock.
+#[test]
+fn unlinking_twice_is_harmless() {
+    let (_d, s) = store();
+    let ks = keys_n(4);
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap();
+    }
+    for (i, k) in ks.iter().enumerate() {
+        if i % 2 == 0 {
+            age(&s.path_for(k).unwrap(), 2.0 * s.options().ttl_s);
+        }
+    }
+    let other = Arc::new(again(&s, options()));
+    let first = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let (o, lock) = (Arc::clone(&other), s.root().join(".reap.lock"));
+    let r = again(&s, options()).with_hooks(Hooks {
+        reap_unlink: Some(Arc::new(move |p: &Path| {
+            if first.swap(false, Ordering::SeqCst) {
+                std::fs::remove_file(&lock).unwrap(); // as if broken as stale
+                assert_eq!(o.reap(BUDGET).reaped, 2);
+            }
+            std::fs::remove_file(p)
+        })),
+        ..Hooks::default()
+    });
+    let out = r.reap(BUDGET);
+    assert_eq!((out.scanned, out.reaped, out.complete), (4, 0, true));
+    assert!(
+        r.drain_stats().is_empty(),
+        "ENOENT is neither reaped nor failed"
+    );
+    assert_eq!(present(&s, &ks), [false, true, false, true]);
+}
+
+/// An unlink that fails for any other reason (on Windows, a segment a reader has mapped, §12) is
+/// skipped and counted `shm_reap_failed`; eviction goes on to the next candidate.
+#[test]
+fn a_failed_unlink_is_skipped_and_counted() {
+    let (_d, s) = store();
+    let ks = keys_n(3);
+    for k in &ks {
+        s.publish(k, wave(200_000).r()).unwrap();
+    }
+    for k in &ks {
+        age(&s.path_for(k).unwrap(), 2.0 * s.options().ttl_s);
+    }
+    let pinned = s.path_for(&ks[1]).unwrap();
+    let r = again(&s, options()).with_hooks(Hooks {
+        reap_unlink: Some(Arc::new(move |p: &Path| {
+            if p == pinned {
+                return Err(std::io::Error::from(std::io::ErrorKind::PermissionDenied));
+            }
+            std::fs::remove_file(p)
+        })),
+        ..Hooks::default()
+    });
+    let seg = file_size(&s, &ks[0]);
+    let out = r.reap(BUDGET);
+    assert_eq!((out.scanned, out.reaped, out.complete), (3, 2, true));
+    assert_eq!(
+        stats(&r),
+        [
+            ("shm_reap_failed", 1),
+            ("shm_reaped", 2),
+            ("shm_reaped_bytes", 2 * seg)
+        ]
+    );
+    assert_eq!(present(&s, &ks), [false, true, false]);
+    let reader = again(
+        &s,
+        Options {
+            reap_interval_s: 30.0,
+            ..options()
+        },
+    );
+    assert_eq!(
+        reader.usage().unwrap().bytes,
+        seg,
+        "usage counts what is still there"
+    );
+}
+
+/// Reapers in several threads, each its own store on one tree, reach the survivor set one
+/// reaper reaches alone: the lock serialises them, and whoever comes second finds the tree at
+/// its targets already.
+#[test]
+fn concurrent_reapers_reach_the_same_survivors() {
+    fn build() -> (tempfile::TempDir, Store, Vec<String>) {
+        let (d, s) = store();
+        let ks = keys_n(10);
+        for k in &ks {
+            s.publish(k, wave(200_000).r()).unwrap();
+        }
+        for (i, k) in ks.iter().enumerate() {
+            let age_s = if i == 7 {
+                2000.0
+            } else {
+                800.0 - i as f64 * 60.0
+            };
+            age(&s.path_for(k).unwrap(), age_s);
+        }
+        (d, s, ks)
+    }
+    let reaping = Options {
+        max_bytes: 5 * 400_000, // low water: 3 files
+        ..options()
+    };
+    let (_d1, alone, ks) = build();
+    assert!(again(&alone, reaping.clone()).reap(BUDGET).complete);
+    let expected = present(&alone, &ks);
+    assert_eq!(expected.iter().filter(|p| **p).count(), 3);
+
+    let (_d2, s, _) = build();
+    let gate = std::sync::Barrier::new(8);
+    let reaped: u64 = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                let r = again(&s, reaping.clone());
+                let gate = &gate;
+                scope.spawn(move || {
+                    gate.wait();
+                    let mut n = 0;
+                    loop {
+                        let out = r.reap(BUDGET);
+                        n += out.reaped;
+                        if out.complete {
+                            break n;
+                        }
+                        std::thread::yield_now();
+                    }
+                })
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).sum()
+    });
+    assert_eq!(reaped, 7, "every segment reaped exactly once");
+    assert_eq!(present(&s, &ks), expected);
+    assert!(!s.root().join(".reap.lock").exists());
+}
+
+/// C9: a Rust publisher's rate-limited turn really reaps.
+#[test]
+fn a_publish_turn_reaps_expired_segments() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    age(&s.path_for(&key()).unwrap(), 2.0 * s.options().ttl_s);
+    s.drain_stats();
+    s.publish(&key_in(D2, "wav16k"), wave(200_000).r()).unwrap();
+    let st = s.drain_stats();
+    assert_eq!((st.get("shm_publish"), st.get("shm_reaped")), (1, 1));
+    assert!(s.attach(&key()).is_none());
+    assert!(s.root().join(".usage.json").exists());
+}
+
+/// Orphaned temporary files over an hour old are swept from segment directories and nowhere
+/// else; they are not candidates (contract §9.5).
+#[test]
+fn old_temporary_files_are_swept_young_ones_kept() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(200_000).r()).unwrap();
+    s.drain_stats();
+    let dir = s.path_for(&key()).unwrap().parent().unwrap().to_path_buf();
+    let old = dir.join("x.npy.1.2.tmp");
+    let young = dir.join("y.npy.1.2.tmp");
+    for (p, a) in [(&old, 3601.0), (&young, 3500.0)] {
+        std::fs::write(p, b"partial").unwrap();
+        age(p, a);
+    }
+    let out = s.reap(BUDGET);
+    assert_eq!((out.scanned, out.reaped), (1, 0));
+    assert!(!old.exists());
+    assert!(young.exists());
+    assert!(s.drain_stats().is_empty());
+}
+
+/// A segment already gone when this reaper unlinks it has left the tree all the same, so it
+/// counts toward the targets (contract §9.6). Not counting it let two racing reapers (after a
+/// broken stale lock, C8) take six segments to none against a low water mark of two. Here
+/// "another reaper" removes the two oldest just before this one does.
+#[test]
+fn an_already_gone_segment_counts_toward_the_target() {
+    let (_d, s) = store();
+    let ks = keys_n(6);
+    for (i, k) in ks.iter().enumerate() {
+        s.publish(k, wave(200_000).r()).unwrap();
+        age(&s.path_for(k).unwrap(), 600.0 - i as f64 * 60.0);
+    }
+    let raced = Arc::new(std::sync::atomic::AtomicU64::new(0));
+    let r = again(
+        &s,
+        Options {
+            max_bytes: 3 * 400_000,
+            ..options()
+        },
+    )
+    .with_hooks(Hooks {
+        reap_unlink: Some({
+            let raced = Arc::clone(&raced);
+            Arc::new(move |p: &Path| {
+                std::fs::remove_file(p)?;
+                if raced.fetch_add(1, Ordering::SeqCst) < 2 {
+                    // The other reaper got there first.
+                    return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
+                }
+                Ok(())
+            })
+        }),
+        ..Hooks::default()
+    });
+    let out = r.reap(BUDGET);
+    assert!(out.complete);
+    assert_eq!(
+        (out.gone, out.reaped),
+        (2, 2),
+        "two taken by the other reaper, two by this one"
+    );
+    assert_eq!(present(&s, &ks), [false, false, false, false, true, true]);
+    // Read the file itself: these options make it stale to `usage()` at once.
+    let usage: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(s.root().join(".usage.json")).unwrap()).unwrap();
+    assert_eq!(
+        usage["files"], 2,
+        ".usage.json counts what is left, gone ones excluded"
+    );
 }

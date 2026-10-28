@@ -5,20 +5,37 @@ publishes; every other process attaches the same physical pages.
 
 Installed as **`pycommonkit`**, imported as **`commonkit`** (the PyPI name `commonkit` belongs
 to an unrelated project). A Rust crate, `commonkit`, implementing the same on-disk contract is
-planned in this repository under `rust/` (`docs/rust-crate-plan.md`).
+in this repository under `rust/` (`docs/rust-crate-plan.md`): keys, segments, the store and the
+reaper are done; cross-language conformance tests come next.
 
-The name is for Fortran's `COMMON` block: a named region several separately
-compiled programs agree to share. That is exactly the contract here — the name
-is the whole interface, and the segment outlives whoever wrote it.
+The name is for Fortran's **named `COMMON` block**. `COMMON /GRID/ X, Y` in one
+subroutine and the same name in another, compiled separately, give both the same
+storage: the linker joins them by the name alone, and no unit owns the block. The
+name is the whole interface. A commonkit key is the same idea: any process that
+can spell the key reaches the same bytes, without knowing who wrote them.
+
+Where the analogy stops is where commonkit had to be stricter:
+
+* **Across processes, not within one program.** A `COMMON` block is shared by the
+  program units of one executable; a segment is shared by separate processes.
+* **The layout travels with the data.** Each Fortran unit declares its own view
+  of a block, and a unit that declares it differently silently reads other
+  variables' bits. A segment carries its dtype, shape and order in its `.npy`
+  header, so every reader sees the same layout, and publishing a different array
+  under an existing key is refused loudly (`KeyCollision`).
+* **Written once, then read-only.** Any unit may assign into a `COMMON` block at
+  any time. A segment is written once, whole, and readers map it read-only.
+* **It may not be there.** A `COMMON` block exists for the whole run. A segment
+  exists only until the reaper needs the space, which is why every caller must be
+  able to recompute it (below).
 
 ## The contract
 
 `docs/contract.md` (version 1) is the authority on the on-disk format: keys, layout, the `.npy`
 segment, publishing, the write-once rules, touch, the reaper, policy and counters. Python is the
 reference implementation and `conformance/vectors/` decides any disagreement
-(`conformance/generate.py` regenerates the fixtures byte for byte). Where today's Python differs
-from the contract, the contract says so and Appendix A lists the changes (step 3 of the plan);
-`tests/test_vectors.py` marks those vectors `xfail(strict=True)` until they land.
+(`conformance/generate.py` regenerates the fixtures byte for byte). Both the Python package and
+the Rust crate pass every vector.
 
 ## Status
 
@@ -41,13 +58,52 @@ See `docs/STATUS.md`. Nothing is published to PyPI or crates.io yet.
   that looks up the same digest repeatedly pays one attach rather than one per
   call.
 
-## The invariant everything rests on
+## A cache, not a store of record
 
-**A missing segment is never an error, only a slower path.** Every failure mode
-— absent root, full filesystem, reaped segment, torn file, malformed key —
-returns `None` or `False` and lets the caller recompute. Nothing here may raise
-into a caller. The constructor never raises either: an unusable root leaves the
-store `disabled` and every method becomes a no-op.
+**A missing segment is never an error, only a slower path.** The store promises
+that a key which is present names the right bytes. It never promises that a key
+is present. So every caller must be able to compute the value again when
+`attach` returns `None`, and must treat a `publish` that returns `False` as
+normal.
+
+A segment can be absent at any moment, for reasons the caller doesn't control:
+
+* **Its publish was declined.** Under pressure the store refuses rather than
+  blocks: the array was smaller than worth storing or larger than allowed, the
+  volume was below its free-space floor, or the tree was over its byte budget.
+  A decline is how the store survives back-pressure, not a fault.
+* **The reaper removed it.** Segments are evicted when they expire, least
+  recently used first to get back under the byte budget, and to restore the
+  free-space floor. The reaper doesn't know who might still want a segment, and
+  doesn't ask: no reference counts, no coordination between processes.
+* **It was torn.** A file shorter than its header promises, after a crash with
+  `fsync` off (the default) or damage from outside the contract, is a miss.
+* **The store is disabled.** The mode is `off`, or the root can't be created or
+  written: every attach misses and every publish declines.
+* **The tree is gone.** On Linux it lives in `/dev/shm` and does not survive a
+  reboot; any root can be cleared; another machine has its own tree.
+
+That one rule is what makes the rest cheap. The reaper can unlink freely,
+publish never blocks, writes need no durability, and a process that fails
+costs the others only time: the next reader recomputes.
+
+**What does raise.** Exactly two things, both bugs at the call site rather than
+conditions of the store: building a key that isn't valid for its scheme
+(`ValueError`), and publishing a *different* array under a key that already
+holds one (`KeyCollision`, a `ValueError` subclass), which means a key scheme or
+a digest is broken. Everything else (an absent root, a full filesystem, a
+reaped or torn segment, a hostile `.usage.json` or `.policy.json`) returns
+`None` or `False` and ticks a counter. The constructor never raises: an
+unusable root leaves the store `disabled` and every method a no-op.
+
+**A value that can't be recomputed doesn't belong here alone.** Keep its
+durable copy somewhere you own and use the store to share it fast. (A pinned
+subtree the reaper skips is a possible later addition; it isn't built.)
+
+**Callers never need `.usage.json`.** It is the reaper's record of how much the
+tree holds, read only by the byte-budget gate. When it is missing or stale,
+usage is unknown, that gate passes, and the free-space floor still applies;
+the next complete reap writes a fresh one.
 
 ## Keys
 
