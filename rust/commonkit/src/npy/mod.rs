@@ -10,7 +10,7 @@
 //! §5.7) is an [`NpyError`], never a panic: lengths are bounded before anything is read,
 //! arithmetic is checked, and nothing is allocated beyond the bytes actually present.
 //!
-//! The parser's shape is ported from ImpCraft's `impcraft-shm` reader, widened to the whole of
+//! The parser's shape is ported from the viewer app's `shm` crate reader, widened to the whole of
 //! contract §5.4 (structured, complex, datetime, text and void descriptors) and corrected
 //! where Python's literal grammar differs (`(3)` is not a tuple).
 

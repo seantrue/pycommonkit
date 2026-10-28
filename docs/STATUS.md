@@ -24,7 +24,7 @@
 
 ## Step 4: Rust skeleton and CI (2026-10-28, branch `step4-rust-skeleton`, uncommitted)
 
-- **`rust/`** is a Cargo workspace (edition 2024, `rust-version = "1.95"` as ImpCraft and PlumCraft) with one crate, `commonkit` 0.1.0, `license = "MIT"`. `rust/commonkit/LICENSE` is a copy of the root `LICENSE`, because `license-file` alongside `license` draws a cargo warning; `tests/license.rs` keeps the two identical. `cargo package --list` includes it.
+- **`rust/`** is a Cargo workspace (edition 2024, `rust-version = "1.95"` as the viewer app and PlumCraft) with one crate, `commonkit` 0.1.0, `license = "MIT"`. `rust/commonkit/LICENSE` is a copy of the root `LICENSE`, because `license-file` alongside `license` draws a cargo warning; `tests/license.rs` keeps the two identical. `cargo package --list` includes it.
 - **Lints:** the crate root denies `unwrap_used`, `expect_used`, `panic`, `unimplemented`, `todo` and `unreachable`, and `rust/clippy.toml` allows the first three in tests. The workspace sets `unsafe_code = "deny"` (not `forbid`, so step 6's `src/map.rs` can allow it) and `undocumented_unsafe_blocks = "deny"`. The default-on `mmap` feature exists and is empty until step 6. PlumCraft keeps the default features (C5).
 - **CI:** `.github/workflows/ci.yml` runs on Linux only (the maintainer: "No ci on mac"; macOS is checked on thresher). It has three jobs:
   - `python`: pytest on 3.11 and 3.13, ruff, and a `uv build` check that leaves out `rust/`.
@@ -44,7 +44,7 @@
 
 - **Modules** in `rust/commonkit/src/`:
   - `store.rs`: `Store`, `Options`, `Mode`, `ArrayRef`, `KeyCollision`, `Counter`, `Stats`, `Usage`. Construction never fails (§6.1); attach takes any grammatical key (C4); publish runs the seven gates in contract order, then the existing-key rule (torn replaced and counted; whole and matching touched; anything else `Err(KeyCollision)`, file and mtime untouched, counted, logged at error level); `verify_republish` compares named-field bytes only, in 1 MiB pieces; `fsync` off by default.
-  - `segment.rs`: `Segment` (mapped or copied), `AttachMode`, typed views (`as_slice::<T>`, zero-copy only for native order and alignment), `to_f32_vec`/`to_f64_vec`, and the element probe ported from `impcraft-shm`.
+  - `segment.rs`: `Segment` (mapped or copied), `AttachMode`, typed views (`as_slice::<T>`, zero-copy only for native order and alignment), `to_f32_vec`/`to_f64_vec`, and the element probe ported from the viewer's `shm` crate.
   - `policy.rs`: `Policy`, `.policy.json` (file over environment, C7), the number and flag grammars, `resolve_root`, `shared_store` and `shared_store_at`.
   - `map.rs`: the crate's only `unsafe` (`memmap2::Mmap::map`), behind the default-on `mmap` feature, with a `SAFETY:` comment citing contract §7. Without the feature, attach copies.
   - `sys.rs`: free space (`statvfs` via `rustix`; `fs4` on Windows), `F_FULLFSYNC` with an `fsync` fallback on macOS, directory sync on POSIX only, the touch as `utimensat(UTIME_NOW)`.
@@ -56,7 +56,7 @@
   - An unregistered but grammatical key is a plain miss in Rust (C4: grammar on read) and a bad key in Python.
   - An object dtype can't be built in Rust (`Descr` refuses it), so the two object admission vectors decline by construction and tick no counter.
   - `.usage.json` is read only if it is a regular file of at most 64 KiB.
-  - Windows: the default root is `%LOCALAPPDATA%\commonkit\store` (ImpCraft's practice; §12 leaves it open). The Windows target is not installed on thresher, so the Windows build is unchecked.
+  - Windows: the default root is `%LOCALAPPDATA%\commonkit\store` (the viewer app's practice; §12 leaves it open). The Windows target is not installed on thresher, so the Windows build is unchecked.
 - **Found in Python (not changed):**
   - `SharedArrayStore("")` makes a store at the working directory; contract §6.1 says an empty root is disabled. Rust follows the contract. Only direct construction reaches it; `shared_store` never passes an empty root.
   - `test_usage_bytes_must_be_a_non_negative_json_integer` passes without testing validity: its fixture's `reap_interval_s=0` makes every `.usage.json` stale. The Rust port uses 30 s.
@@ -121,5 +121,5 @@ The maintainer: "Add a way to forcibly remove an existing cache entry (if not in
    - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
    - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
    - Deferred: CI builds only on stable Rust (the stated minimum, 1.95, is unchecked); the integration tests read `../../conformance` and must be excluded from the crate package before publishing.
-3. **Steps 9–10:** the ImpCraft and PlumCraft migrations, after `commonkit` 0.1.0 is published. Step 8 is done above.
+3. **Steps 9–10:** the viewer app and PlumCraft migrations, after `commonkit` 0.1.0 is published. Step 8 is done above.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.

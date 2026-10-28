@@ -305,7 +305,7 @@ fn read_policy_inner(path: &Path) -> Option<PolicyFile> {
 ///
 /// - macOS: `~/Library/Caches/commonkit/store`, on the internal SSD (no `/dev/shm`; the SSD
 ///   beat a RAM disk on first attach).
-/// - Windows: `%LOCALAPPDATA%\commonkit\store`. Not yet contract (§12); it is ImpCraft's
+/// - Windows: `%LOCALAPPDATA%\commonkit\store`. Not yet contract (§12); it is the viewer app's
 ///   existing practice.
 /// - Every other platform: `/dev/shm/commonkit`.
 pub fn default_root() -> Option<PathBuf> {

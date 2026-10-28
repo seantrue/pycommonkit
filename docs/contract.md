@@ -562,7 +562,7 @@ Windows is a supported platform (C10). Commonkit work for Windows already exists
   - the reaper (§9.6), whose unlink of a mapped segment fails rather than succeeding;
   - rename-over when publishing and when replacing a torn segment (§6.4, §6.5).
 - **There is no `statvfs`.** How free space is measured (§9.9) is not yet specified.
-- **The default root is unspecified.** ImpCraft's existing reader uses `%LOCALAPPDATA%\commonkit\store`; that is existing practice, not yet contract. Python today would use `/dev/shm/commonkit`.
+- **The default root is unspecified.** The viewer app's existing reader uses `%LOCALAPPDATA%\commonkit\store`; that is existing practice, not yet contract. Python today would use `/dev/shm/commonkit`.
 - The path separator in §3.6 and the separator count in §9.1 are POSIX rules.
 
 Until this section is complete, Windows behaviour is unspecified, and the vectors give `null` where an expectation is platform-specific to Windows.
