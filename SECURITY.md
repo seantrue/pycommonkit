@@ -9,7 +9,7 @@ Please report security problems privately, not in a public issue.
 - **Otherwise:** email sean.true@gmail.com with "pycommonkit security" in the
   subject.
 
-Include the version (`pycommonkit` on PyPI or `commonkit` on crates.io), the
+Include the version (`pyuncommonkit` on PyPI or `commonkit` on crates.io), the
 platform, and the smallest steps that show the problem. You should hear back
 within a week.
 

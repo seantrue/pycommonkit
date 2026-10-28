@@ -55,6 +55,8 @@ Section 3 lists 16 inconsistencies between them. Each copy keeps only what is it
 
 The names were free on 2026-10-27. PyPI `pycommonkit` and crates.io `commonkit` both returned 404. PyPI `commonkit` belongs to an unrelated project: version 1.0.8, "A library for handling common stuff in Python", by another author. That clash is why the distribution is renamed.
 
+**Amended 2026-10-28: the distribution is `pyuncommonkit`.** PyPI refused the first upload of `pycommonkit` as too similar to `commonkit` (TestPyPI, which has no `commonkit`, had accepted it). The maintainer chose `pyuncommonkit` over `pyuncommon`, which would likely have been refused the same way, since PyPI has an `uncommon`. The import name, the crate name and the repository are unchanged. Below, where `pycommonkit` names what is installed or depended on, read `pyuncommonkit`; section 9.3 is updated.
+
 Two facts about the rename and licence were checked with uv 0.12.5 on a scratch copy, without touching the repository:
 
 - **`module-name` is required.** uv_build infers the module from the project name, so renaming the project alone fails: "Expected a Python module at: src/pycommonkit/__init__.py". The fix is to add `[tool.uv.build-backend] module-name = "commonkit"`. With that line, the wheel holds `commonkit/` under `pycommonkit-0.1.0.dist-info`.
@@ -459,28 +461,28 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
   - the row "no Rust commonkit writer is needed" is corrected;
   - the source-change row "Optional: a Rust writer crate…" is marked "planned: `commonkit/docs/rust-crate-plan.md`".
 
-### 9.3 The rename to `pycommonkit`, and what it touches
+### 9.3 The rename to `pyuncommonkit` (first planned as `pycommonkit`), and what it touches
 
 | File | Change |
 |---|---|
-| `commonkit/pyproject.toml` | `name = "pycommonkit"`. Add `[tool.uv.build-backend] module-name = "commonkit"` (required; see section 2). Replace `license = { file = "LICENSE" }` with `license = "MIT"` and `license-files = ["LICENSE"]`. `requires-python = ">=3.11"` is unchanged. |
+| `commonkit/pyproject.toml` | `name = "pyuncommonkit"`. Add `[tool.uv.build-backend] module-name = "commonkit"` (required; see section 2). Replace `license = { file = "LICENSE" }` with `license = "MIT"` and `license-files = ["LICENSE"]`. `requires-python = ">=3.11"` is unchanged. |
 | `commonkit/uv.lock` | Regenerate (`uv lock`). It is currently untracked; decide whether to commit it. |
-| `commonkit/README.md`, `CLAUDE.md` | Say "installed as `pycommonkit`, imported as `commonkit`"; add the Rust crate and `docs/contract.md`; `CLAUDE.md` gains the Cargo commands and the cross-language rule. |
+| `commonkit/README.md`, `CLAUDE.md` | Say "installed as `pyuncommonkit`, imported as `commonkit`"; add the Rust crate and `docs/contract.md`; `CLAUDE.md` gains the Cargo commands and the cross-language rule. |
 | `commonkit/AI.md` | A new entry in the step that commits, following the `ai-md` skill. |
-| the viewer app's `python/pyproject.toml` | `"commonkit>=0.1.0"` becomes `"pycommonkit>=0.1.0"`; `[tool.uv.sources] commonkit = { path = "../../commonkit", editable = true }` becomes `pycommonkit = {…}` |
+| the viewer app's `python/pyproject.toml` | `"commonkit>=0.1.0"` becomes `"pyuncommonkit>=0.1.0"`; `[tool.uv.sources] commonkit = { path = "../../commonkit", editable = true }` becomes `pyuncommonkit = {…}` |
 | the viewer app's `python/uv.lock` | `uv lock` (and `uv sync --frozen` on the deployment host afterwards) |
-| `plumcraft/python/pyproject.toml` | `"commonkit"` becomes `"pycommonkit"`, and the source key the same way |
+| `plumcraft/python/pyproject.toml` | `"commonkit"` becomes `"pyuncommonkit"`, and the source key the same way |
 | `plumcraft/python/uv.lock` | `uv lock` |
 | Other consumers | Search every repository for a `commonkit` dependency line before the switch. The production image-corpus app and impressionist, which the AGENTS file names as using the shared store, may depend on it. |
 | Imports | None change: `import commonkit` everywhere |
 
-**Order.** Rename in commonkit first. Update both consumers' manifests and locks in the same session. An old lock that still names `commonkit` and points at a path whose distribution is now `pycommonkit` fails to resolve, which is loud and harmless.
+**Order.** Rename in commonkit first. Update both consumers' manifests and locks in the same session. An old lock that still names `commonkit` and points at a path whose distribution is now `pyuncommonkit` fails to resolve, which is loud and harmless.
 
 **When to reserve the names.**
 
 - **crates.io `commonkit`:** publish the real `0.1.0` at the end of step 8, once the crate passes the conformance suite. Not a placeholder: crates.io's policy discourages name-squatting.
-- **PyPI `pycommonkit`:** publish `0.1.0` when the rename lands (step 1). The code is already public on GitHub, MIT, and has run in production, so a real release is the cleanest way to hold the name.
-- **Until a name is published** it can be taken. If that risk matters, publish `pycommonkit` in step 1 and the crate in step 8, as above, rather than waiting for the migrations.
+- **PyPI `pyuncommonkit`** (planned as `pycommonkit`, refused by PyPI): publish `0.1.0` when the rename lands (step 1). The code is already public on GitHub, MIT, and has run in production, so a real release is the cleanest way to hold the name.
+- **Until a name is published** it can be taken. If that risk matters, publish the Python distribution in step 1 and the crate in step 8, as above, rather than waiting for the migrations.
 - **Releases follow the maintainer's release rule:** a clean tree, a version bump, a tag, `AI.md`, then build and upload.
 
 ## 10. Future items from PlumCraft's source-change table

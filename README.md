@@ -9,8 +9,8 @@
 Named shared-memory segments for numpy arrays. One process decodes and
 publishes; every other process attaches the same physical pages.
 
-Installed as **`pycommonkit`**, imported as **`commonkit`** (the PyPI name `commonkit` belongs
-to an unrelated project). A Rust crate, `commonkit`, implementing the same on-disk contract is
+Installed as **`pyuncommonkit`**, imported as **`commonkit`** (the PyPI name `commonkit` belongs
+to an unrelated project, and PyPI refused `pycommonkit` as too similar to it). A Rust crate, `commonkit`, implementing the same on-disk contract is
 in this repository under `rust/` (`docs/rust-crate-plan.md`): keys, segments, the store and the
 reaper are done, and a cross-language conformance suite runs both on one tree.
 
