@@ -1,7 +1,7 @@
 //! An attached segment: a parsed header and its payload, mapped read-only or copied
 //! (contract §8.1), with typed views and a single-element probe.
 //!
-//! The typed views and the probe are ported from ImpCraft's `impcraft-shm` (`as_f32`/`as_f64`
+//! The typed views and the probe are ported from the viewer app's `shm` crate (`as_f32`/`as_f64`
 //! became `as_slice::<T>`; `element.rs` as it was, with `u64` indices to match shapes here).
 //! Zero-copy views exist only for native byte order at an aligned offset; everything else is
 //! read through `element`, `to_f32_vec` or `to_f64_vec`, which handle either byte order.
@@ -60,8 +60,9 @@ pub(crate) enum Load {
 }
 
 impl Segment {
-    /// Open the `.npy` file at `path` outside any store: ImpCraft's fallback files, PlumCraft's
-    /// `path` locators. No key check, no counter, no touch; the caller decides what to trust.
+    /// Open the `.npy` file at `path` outside any store: the viewer app's fallback files,
+    /// PlumCraft's `path` locators. No key check, no counter, no touch; the caller decides what to
+    /// trust.
     /// `None` when the file is absent or not a whole `.npy` file.
     pub fn open(path: impl AsRef<Path>, attach: AttachMode) -> Option<Segment> {
         match load(path.as_ref(), attach) {

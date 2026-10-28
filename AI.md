@@ -43,6 +43,18 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Preparing to make the repository public: a secrets scan, private names generalised, `SECURITY.md` (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked for.** "Scan the current code and repo for secrets and prep for making the repo public"; chose gitleaks when asked which scanner; then, on the findings: generalise the viewer app, keep PlumCraft, call the original application "the non-public app", reword the production-host line to "the deployment host", keep the email, add `SECURITY.md`, switch the banner back to the raw-GitHub URL, and update the GitHub settings.
+
+**Scan.** gitleaks 8.30.1 over every non-merge commit on every branch (11) and over the whole working tree, tracked, untracked and ignored (113.7 MB): no leaks. A grep of every blob in history for private names, host names, paths and addresses found nothing that is not also at `HEAD`, so no history rewrite is needed. The findings and the maintainer's decisions are in an untracked report in `claude-debug/`, left untracked because it names what this change removes.
+
+**Changes.** The viewer app's name and its crate's name are replaced in the plan, the contract, `STATUS.md`, this file, `rust/Cargo.toml` and three Rust comments (~55 LOC across 9 files, by a script of exact replacements, then each one read). The script's first pass doubled one article and left several sentence starts in lower case; both were fixed before commit, and one Rust comment was rewrapped to stay within 100 columns. `SECURITY.md` (~34 LOC): private reporting, supported versions, and what is in scope for a store that unlinks files in a shared root. The README banner is linked by raw-GitHub URL again, which renders only once the repository is public (#8 had switched it to a repo path because of that).
+
+**GitHub settings.** Done: branch protection on `main` requiring the `python`, `rust` and `conformance` checks, with force-pushes and deletion off; Dependabot alerts. Refused while the repository is private: secret scanning with push protection, and private vulnerability reporting, which `SECURITY.md` names as the preferred channel.
+
+Checked: `cargo fmt --check`. Not run: the test suites (only comments and documents changed; CI runs them).
+
 ### 2026-10-28 — A README banner from public-domain NAIP imagery; `icons/` with attribution; `uv.lock` tracked (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked for.** An aerial photo of Midwest farmland "with a free to use no attribution license", from Flickr first; then a choice of logo among the maintainer's stylized renderings ("Go with faded-illustration. Add to README in pleasing way"); then "Fetch me an NIAP tile", "Try for iowa or kansas, zoomed out 2x", new renderings of the Finney County tile, "a README with attribution and making the impressionist available under the MIT license", and to track `uv.lock`. The renderings, the cleanup of `icons/`, and every choice of image and style are the maintainer's.
@@ -107,7 +119,7 @@ Checked: Rust 135 passed with and without `mmap`, clippy clean on macOS and for 
 
 ### 2026-10-28 — Step 5: keys and `.npy` in Rust; Python's registry compares variant sets (Claude Opus 5.5, Claude Code, with one delegated agent)
 
-**What the agent did** (about 2,800 lines of Rust with tests). `keys.rs`: the grammar in full, schemes, the registry (a closed variant set compared as a set, pattern text compared), ASCII-only digest folding on build and none on parse, variant patterns through the `regex` crate (MIT OR Apache-2.0; missing from the plan's dependency list). `npy/`: a header parser for versions 1–3, both byte orders, Fortran order, trailing bytes and every descriptor class, ported in logic from ImpCraft's `impcraft-shm` reader, and a writer of numpy's exact header bytes. Every key vector and all 53 header vectors pass, read from the JSON at test time. The writer builds each header from the vector's array spec, not the fixture, and was checked by breaking it three ways (no growth padding, zero alignment spaces allowed, version 1 for every Latin-1 header): each break failed the vectors. A hand-rolled generator ran about 95,000 hostile cases (every truncation, mutated fixtures, random header texts, write-and-read-back, random keys) with no panic. No `unsafe`.
+**What the agent did** (about 2,800 lines of Rust with tests). `keys.rs`: the grammar in full, schemes, the registry (a closed variant set compared as a set, pattern text compared), ASCII-only digest folding on build and none on parse, variant patterns through the `regex` crate (MIT OR Apache-2.0; missing from the plan's dependency list). `npy/`: a header parser for versions 1–3, both byte orders, Fortran order, trailing bytes and every descriptor class, ported in logic from the viewer app's `shm` crate reader, and a writer of numpy's exact header bytes. Every key vector and all 53 header vectors pass, read from the JSON at test time. The writer builds each header from the vector's array spec, not the fixture, and was checked by breaking it three ways (no growth padding, zero alignment spaces allowed, version 1 for every Latin-1 header): each break failed the vectors. A hand-rolled generator ran about 95,000 hostile cases (every truncation, mutated fixtures, random header texts, write-and-read-back, random keys) with no panic. No `unsafe`.
 
 **Where Rust and Python disagreed, decided by the maintainer ("Yes for all").** The contract says a closed variant *set*; Python compared the tuple, so the same variants in another order conflicted. Python now compares sets (vector `keys.registry.variants_reordered`). The contract says forms are distinct; Python didn't check, and now refuses duplicates (a new test). The Rust writer is stricter than Python on unusual field names (backslash, control or non-letter non-ASCII), which is safe.
 
@@ -162,12 +174,12 @@ Checked: 375 passed, 87 xfailed; `ruff check .` clean; the generator reproduces 
 
 **What the maintainer asked for.** "Make a plan to integrate a crate into the commonkit package." Then the names, "Let's go for a pypi name of pycommonkit and the crate of commonkit", MIT and Python 3.11+, and a decision on every recommendation, several of which overturned the AI's.
 
-**What the AI did.** `docs/rust-crate-plan.md` (553 lines; a PDF beside it, untracked): a pure Rust crate `commonkit` in a `rust/` workspace implementing the same on-disk contract as Python, a written `docs/contract.md` as the authority, shared conformance vectors across both languages, mmap behind one audited module, migration of ImpCraft's `impcraft-shm` and PlumCraft's `plumcraft-store`, the rename to `pycommonkit` (checked on a scratch copy with uv 0.12.5: `module-name = "commonkit"` is required; PEP 639 licence metadata works), 16 inconsistencies found between the three implementations, and a ten-step plan of 17–21 days. A delegated agent wrote the first draft; the AI reviewed and edited it.
+**What the AI did.** `docs/rust-crate-plan.md` (553 lines; a PDF beside it, untracked): a pure Rust crate `commonkit` in a `rust/` workspace implementing the same on-disk contract as Python, a written `docs/contract.md` as the authority, shared conformance vectors across both languages, mmap behind one audited module, migration of the viewer app's `shm` crate and PlumCraft's `plumcraft-store`, the rename to `pycommonkit` (checked on a scratch copy with uv 0.12.5: `module-name = "commonkit"` is required; PEP 639 licence metadata works), 16 inconsistencies found between the three implementations, and a ten-step plan of 17–21 days. A delegated agent wrote the first draft; the AI reviewed and edited it.
 
 **The maintainer's decisions and corrections (C1–C17).**
 
 - **Write-once rules** ("Add the contract rules"), after asking "How does an array get torn if it can only be written to once?": the plan had called a torn file a risk without saying it can only come from outside the contract. **fsync** became a policy option, "default to no".
-- **Windows (C10).** The AI's plan recommended dropping `impcraft-shm`'s Windows branch, on its own assumption that only macOS and Linux mattered. The maintainer: "Just don't delete support from shared infrastructure like commonkit. There is commonkit work already complete on windows, and we will merge it in later." A defect in the plan, caught by the maintainer.
+- **Windows (C10).** The AI's plan recommended dropping the viewer's `shm` crate's Windows branch, on its own assumption that only macOS and Linux mattered. The maintainer: "Just don't delete support from shared infrastructure like commonkit. There is commonkit work already complete on windows, and we will merge it in later." A defect in the plan, caught by the maintainer.
 - **`.policy.json` (C7):** obeyed if present, and the file wins over the environment.
 - **mmap (C5):** default-on, and PlumCraft does not turn it off (the plan had it reading by copy).
 - **Republishing (C15).** The AI recommended rewriting an existing key, for parity with Python. The maintainer: "Why would I rewrite an existing file?", then: a different array under a whole file's key "is not torn, that's a major system error". Now a torn file is replaced, a matching one touched, and a collision raises `KeyCollision` (Rust `Err`), with `verify_republish` comparing bytes in CI. A wrong recommendation, caught by the maintainer.
@@ -212,28 +224,28 @@ None of this was tested. The reaper tests covered only the root guard, files tha
 
 ### 2026-10-02 — `shared_store(attach=...)`: how a caller reads is its own choice (Claude Opus 5.5, Claude Code)
 
-**What the maintainer asked for.** "Do the follow ups". One follow-up was moving alexandria onto the shared store, and alexandria picks `mmap` or `read` attach per process (`PIXEL_SHM_ATTACH`).
+**What the maintainer asked for.** "Do the follow ups". One follow-up was moving the non-public app onto the shared store, and the non-public app picks `mmap` or `read` attach per process (`PIXEL_SHM_ATTACH`).
 
 **What the AI did.** It added an `attach` parameter to `shared_store()` (default `mmap`; ~6 LOC) and a test (~5 LOC). How a process reads affects only that process, so `attach` sits with `mode` and `min_array_bytes` as a per-caller choice, not tree-wide policy. 66 tests pass.
 
 ### 2026-10-02 — `shared_store()`: one store per host, with tree-wide policy from the environment (Claude Opus 5.5, Claude Code)
 
-**What the maintainer asked for.** While adopting commonkit as Virtual Impressionist's checkpoint store, the maintainer pointed out that "all instances of the commonkit cache are supposed to share a common backing store directory with age out" and asked whether separate stores were costing memory. Offered two options, the maintainer chose to define the shared defaults in commonkit rather than reuse alexandria's `PIXEL_SHM_*` settings.
+**What the maintainer asked for.** While adopting commonkit as Virtual Impressionist's checkpoint store, the maintainer pointed out that "all instances of the commonkit cache are supposed to share a common backing store directory with age out" and asked whether separate stores were costing memory. Offered two options, the maintainer chose to define the shared defaults in commonkit rather than reuse the non-public app's `PIXEL_SHM_*` settings.
 
 **What the AI did.** The AI added `src/commonkit/shared.py` (~85 LOC), exported `shared_store` from `__init__`, and wrote `tests/test_shared.py` (~64 LOC, 5 tests). It also updated `README.md` and `CLAUDE.md`.
 
 - **Tree-wide policy comes only from the environment.** The root, byte budget, TTL, free-space floor, reap interval and largest array come from `COMMONKIT_STORE_*` variables or `DEFAULTS`, never from a caller. The reason is the existing reaper design: whichever process reaps applies its own values to every segment in the tree, so a per-caller override would silently win over everyone else's.
 - **Callers choose only what concerns their own publishing:** `mode` and `min_array_bytes`. A `root` argument exists for tests.
-- **Defaults are alexandria's measured macOS values:** `~/Library/Caches/commonkit/store`, a 2 GB budget (because Time Machine local snapshots pin reaped segments), 900 s TTL, and an 8 GB free-space floor. On Linux the default root is `/dev/shm/commonkit` with 8 GB.
+- **Defaults are the non-public app's measured macOS values:** `~/Library/Caches/commonkit/store`, a 2 GB budget (because Time Machine local snapshots pin reaped segments), 900 s TTL, and an 8 GB free-space floor. On Linux the default root is `/dev/shm/commonkit` with 8 GB.
 - **Bad environment values fall back to the defaults** rather than raising, consistent with the never-raise invariant.
 
-**Answer to the memory question, as measured and read.** RAM is not lost: segments are clean, file-backed, read-only mappings, held once in the unified buffer cache and not charged to `phys_footprint` (alexandria's measurement). Disk was the cost: two trees meant two budgets, and on macOS each tree's turnover pins snapshot space. The consumer's separate 8 GB tree was a mistake by the AI, corrected by this change before anything was written to it.
+**Answer to the memory question, as measured and read.** RAM is not lost: segments are clean, file-backed, read-only mappings, held once in the unified buffer cache and not charged to `phys_footprint` (the non-public app's measurement). Disk was the cost: two trees meant two budgets, and on macOS each tree's turnover pins snapshot space. The consumer's separate 8 GB tree was a mistake by the AI, corrected by this change before anything was written to it.
 
 **Testing.** The full suite passes (65 tests, 5 new). ruff's six findings are all in pre-existing files (`cache.py`, `keys.py`, `read.py`).
 
 **Process slip.** The first commit of this change went out without this entry, because an edit to `AI.md` failed and the commit ran anyway. The AI caught it before merging, and the entry was added as a follow-up commit on the same PR.
 
-**Not done.** alexandria still configures its own tree through `PIXEL_SHM_*`. Moving it to `shared_store()` is a separate change in that repository.
+**Not done.** The non-public app still configures its own tree through `PIXEL_SHM_*`. Moving it to `shared_store()` is a separate change in that repository.
 
 ### 2026-09-18 — CLAUDE.md, clearer dtype tests, sox and ffmpeg end-to-end tests (Claude Opus 5, Claude Code)
 

@@ -4,7 +4,7 @@ members = ["commonkit", "ck-conform"]
 
 [workspace.package]
 edition = "2024"
-# As ImpCraft and PlumCraft (plan section 5). Edition 2024 itself needs 1.85.
+# As the viewer app and PlumCraft (plan section 5). Edition 2024 itself needs 1.85.
 rust-version = "1.95"
 license = "MIT"
 authors = ["Sean D. True <sean.true@gmail.com>"]

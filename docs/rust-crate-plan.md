@@ -11,7 +11,7 @@ The maintainer asked: "Make a plan to integrate a crate into the commonkit packa
 This is a plan. No code was written and no repository was changed to produce it. Everything below was checked against the source on 2026-10-27:
 
 - commonkit `4dbfc7d`;
-- ImpCraft `crates/shm` and `python/src/impcraft_engine/publish.py`;
+- the viewer app's `crates/shm` and its engine's `publish.py`;
 - PlumCraft `23c58e2`: `crates/store`, `crates/engine/src/data.rs`, `python/src/plumcraft_engine/data.py`, `docs/plan.md` and research notes 11 and 13;
 - the live shared tree on thresher, `/Volumes/CommonkitStore/store`.
 
@@ -28,10 +28,10 @@ This is a plan. No code was written and no repository was changed to produce it.
 
 **What it replaces.** Two partial Rust copies of the contract have drifted from Python and from each other:
 
-- ImpCraft's `impcraft-shm`, an mmap reader;
+- the viewer app's `shm` crate, an mmap reader;
 - PlumCraft's `plumcraft-store`, a copying reader and a writer with no gates.
 
-Section 3 lists 16 inconsistencies between them. Each copy keeps only what is its own: ImpCraft keeps its viewer helpers, and PlumCraft keeps its handles, locators and same-host proof.
+Section 3 lists 16 inconsistencies between them. Each copy keeps only what is its own: the viewer app keeps its viewer helpers, and PlumCraft keeps its handles, locators and same-host proof.
 
 **Already decided by the maintainer** (section 2):
 
@@ -64,7 +64,7 @@ Two facts about the rename and licence were checked with uv 0.12.5 on a scratch 
 
 ### 3.1 The three implementations
 
-| | commonkit (Python) | `impcraft-shm` (Rust) | `plumcraft-store` (Rust) |
+| | commonkit (Python) | the viewer's `shm` crate (Rust) | `plumcraft-store` (Rust) |
 |---|---|---|---|
 | Role | Reference: publish, attach, reap, policy | Reader only (UI viewer) | Copying reader, minimal writer, handles, locators, proof |
 | Size | 469 lines in `store.py`; 72 tests | ~1,200 lines; 18 tests | 435 lines; 7 tests |
@@ -81,9 +81,9 @@ Two facts about the rename and licence were checked with uv 0.12.5 on a scratch 
 ### 3.2 The inconsistencies the crate should end
 
 1. **Rust readers never refresh LRU.**
-   - Python's `attach` touches mtime. `impcraft-shm` and `plumcraft-store` never do.
+   - Python's `attach` touches mtime. The viewer's `shm` crate and `plumcraft-store` never do.
    - So a segment the UI is looking at ages exactly like one nobody reads, and the reaper evicts it first.
-   - ImpCraft's engine hides part of this: `publish.py` calls `attach` before republishing, which touches.
+   - The viewer app's engine hides part of this: `publish.py` calls `attach` before republishing, which touches.
 2. **Rust-only publishing is never reaped.**
    - `plumcraft-store` writes but never reaps.
    - A tree written only by Rust engines repeats the 2026-10-16 failure, where the store sat full for 5.7 days because nothing ran the reaper.
@@ -96,18 +96,18 @@ Two facts about the rename and licence were checked with uv 0.12.5 on a scratch 
    - A torn file can't come from a conforming writer in normal operation: segments are write-once and appear by an atomic rename. It can only come from outside the contract: a crash before unsynced data reached disk (§6.4, fsync off), a non-conforming tool, or disk corruption.
    - `plumcraft-store::read_npy` never compares the payload length with the shape.
    - `read_key` can therefore return a short blob for such a file. `resolve`, PlumCraft's normal path, verifies the handle, so it returns a miss.
-5. **Trailing bytes.** numpy loads a file that has bytes after its payload, in both normal and mmap mode (checked with numpy 2.5.4). `impcraft-shm` returns `SizeMismatch` instead, so Rust misses a segment Python hits.
-6. **Errors versus misses.** `impcraft-shm` returns `Err` for a malformed key or header. The Python invariant is that these are a counted miss.
+5. **Trailing bytes.** numpy loads a file that has bytes after its payload, in both normal and mmap mode (checked with numpy 2.5.4). The viewer's `shm` crate returns `SizeMismatch` instead, so Rust misses a segment Python hits.
+6. **Errors versus misses.** The viewer's `shm` crate returns `Err` for a malformed key or header. The Python invariant is that these are a counted miss.
 7. **Dtype coverage.**
    - Python publishes and reads every non-object dtype: `c8`, `M8`, `U` and structured types included.
-   - `impcraft-shm` rejects these as errors.
+   - The viewer's `shm` crate rejects these as errors.
    - `plumcraft-store` passes the descriptor through as a string, but rejects Fortran order.
    - PlumCraft registers `plumraw` as `uint8` in Python, and its Rust writer doesn't enforce it.
 8. **Headers are not byte-identical to numpy's.**
    - numpy pads the header with `GROWTH_AXIS_MAX_DIGITS` spaces (21 minus the digits of the growth axis) before aligning to 64 bytes.
    - Both Rust header writers leave out that padding.
    - For most shapes the results agree by luck. For a 20-dimensional shape numpy writes a 192-byte header and the Rust writers write 128. Both files are valid.
-   - `impcraft-shm`'s test "our v1 header is byte-identical to numpy's" passes only for the shape it tests.
+   - The viewer's `shm` crate's test "our v1 header is byte-identical to numpy's" passes only for the shape it tests.
 9. **Temporary files.**
    - Python names them `{digest}.{variant}.npy.{pid}.{tid}.tmp`.
    - PlumCraft names them `.{digest}.{pid}.{n}.tmp`.
@@ -119,7 +119,7 @@ Two facts about the rename and licence were checked with uv 0.12.5 on a scratch 
 12. **Python itself breaks the never-raise invariant twice.**
     - `publish` of an object array raises `ValueError` from `np.save(..., allow_pickle=False)`. Only `OSError` is caught.
     - On Windows, `os.statvfs` doesn't exist, so `_free_bytes` raises `AttributeError`. Its default root there would also be `/dev/shm/commonkit`.
-13. **Default roots disagree on unusual hosts.** The two Rust readers fall back to `/` and `/tmp` when `HOME` is unset, and only `impcraft-shm` has a Windows branch. Python has no Windows default at all.
+13. **Default roots disagree on unusual hosts.** The two Rust readers fall back to `/` and `/tmp` when `HOME` is unset, and only the viewer's `shm` crate has a Windows branch. Python has no Windows default at all.
 14. **PlumCraft keeps private subtrees in the shared root.**
     - `.hello/` holds same-host nonce files. 100 have accumulated on thresher and are never cleaned.
     - `.sources/` holds uploaded sources. They are never reaped and never counted against the byte budget.
@@ -131,7 +131,7 @@ Two facts about the rename and licence were checked with uv 0.12.5 on a scratch 
     - The plan's own to-do list says to correct the 2.1 row.
 16. **Policy depends on how a process was launched.**
     - On thresher, the tree-wide policy is set only in `~/.bashrc`: `ROOT=/Volumes/CommonkitStore/store`, `MAX_GB=7`, `MIN_FREE_GB=1`, `TTL_S=604800`.
-    - A process launched from Finder, such as the ImpCraft app bundle (ImpCraft's T17), sees none of it.
+    - A process launched from Finder, such as the viewer app's bundle (its T17), sees none of it.
     - Such a process gets a second tree with its own budget: the macOS default root, 2 GB and 900 s.
     - A process that gets `ROOT` but not the other variables would reap the 9.3 GiB volume with the default `MIN_FREE_GB=8`. That is a floor the volume can never meet, so it would evict nearly everything.
 
@@ -139,7 +139,7 @@ Two facts about the rename and licence were checked with uv 0.12.5 on a scratch 
 
 | Option | What it gives | Against commonkit's rules |
 |---|---|---|
-| **A. A pure Rust crate implementing the contract** | Rust processes become first-class publishers, readers and reapers with no Python in the process. ImpCraft's UI and PlumCraft's host and engines are Rust binaries without Python. | Python is untouched: numpy only, 3.11, a pure-Python wheel. |
+| **A. A pure Rust crate implementing the contract** | Rust processes become first-class publishers, readers and reapers with no Python in the process. The viewer app's UI and PlumCraft's host and engines are Rust binaries without Python. | Python is untouched: numpy only, 3.11, a pure-Python wheel. |
 | B. PyO3 bindings: Rust core, Python on top | One implementation | Turns `pycommonkit` into a compiled extension: a wheel per platform and Python version, maturin instead of uv_build, a toolchain to build from source. The 3.11 model venvs would depend on a native wheel. It doesn't help Rust callers that lack Python. |
 | C. Both: a Rust core, plus PyO3 as the Python implementation | One implementation everywhere | All of B's packaging costs. The Python package loses the property its `CLAUDE.md` defends: nothing but numpy. |
 | D. A Rust crate now, an optional PyO3 accelerator later | A now. Room for a separate `pycommonkit-native` wheel if a measurement ever justifies it | None now |
@@ -161,7 +161,7 @@ commonkit/
   docs/contract.md        the on-disk contract (new)
   docs/rust-crate-plan.md this plan
   rust/
-    Cargo.toml            [workspace]; edition 2024; rust-version 1.95 (as ImpCraft and PlumCraft)
+    Cargo.toml            [workspace]; edition 2024; rust-version 1.95 (as the viewer app and PlumCraft)
     Cargo.lock            committed
     commonkit/            the crate (license = "MIT", license-file = "../../LICENSE" or a copy)
     conform/              ck-conform: a CLI the Python tests drive (publish = false)
@@ -223,7 +223,7 @@ The contract opens with these rules, which the sections below make precise:
 - **Readers versus publishers (C4):** a publisher must validate a key against a registered scheme. A reader may attach any key that matches the grammar.
   - The grammar alone already guarantees the path stays under the root, and a key's path doesn't depend on its scheme.
   - Python's stricter reader still conforms.
-  - Rust readers such as the ImpCraft UI then need not copy the engine's scheme definitions, which would be another place to drift.
+  - Rust readers such as the viewer app's UI then need not copy the engine's scheme definitions, which would be another place to drift.
 - **Digest algorithm:** the contract names only 32 hex digits. Which algorithm produced them is the scheme's business, which leaves room for BLAKE3 (section 10).
 
 ### 6.2 Layout
@@ -359,12 +359,12 @@ Both implementations use the same counter names, so a stats table can sum them:
 | `shared_store(mode, attach, min_array_bytes)` | `Store` | Policy from the environment (and `.policy.json` if C7 is adopted) |
 | `store.attach(key)` | `Option<Segment>` | A miss, torn file, bad key or disabled store is `None`, plus a counter |
 | `store.read(key)` | `Option<OwnedArray>` | A copy; always available, with no `unsafe` |
-| `Segment::open_path(path)` / `OwnedArray::read_path(path)` | `Option<…>` | For ImpCraft's fallback files and PlumCraft's `path` locators; the caller decides what to trust |
+| `Segment::open_path(path)` / `OwnedArray::read_path(path)` | `Option<…>` | For the viewer app's fallback files and PlumCraft's `path` locators; the caller decides what to trust |
 | `store.publish(key, ArrayRef)` | `Result<bool, KeyCollision>` | `ArrayRef` is a descriptor, a shape, Fortran order and borrowed bytes; checked before writing. `Ok(true)` published or touched, `Ok(false)` declined, `Err` a key collision (§6.4 item 4) |
 | `store.reap(budget)` | `ReapReport` | `scanned`, `reaped`, `bytes`, `complete` |
 | `store.usage()` | `Option<Usage>` | `None` when `.usage.json` is stale |
 | `store.drain_stats()` | `Stats` | Atomic counters taken and reset |
-| `Segment` | `descr()`, `dtype()`, `shape()`, `fortran_order()`, `bytes()`, `as_slice::<T>()`, `to_f32_vec()`, `element(index)` | Ported from `impcraft-shm`: zero-copy only when the data is native-endian and aligned |
+| `Segment` | `descr()`, `dtype()`, `shape()`, `fortran_order()`, `bytes()`, `as_slice::<T>()`, `to_f32_vec()`, `element(index)` | Ported from the viewer's `shm` crate: zero-copy only when the data is native-endian and aligned |
 
 **Lints.** The crate root carries this:
 
@@ -373,7 +373,7 @@ Both implementations use the same counter names, so a stats table can sum them:
 
 ```
 
-Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checked, and allocations are bounded by `max_array_bytes` and the file length. A fuzz test covers headers (ported from `impcraft-shm`) and keys.
+Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checked, and allocations are bounded by `max_array_bytes` and the file length. A fuzz test covers headers (ported from the viewer's `shm` crate) and keys.
 
 **Errors.** Typed errors exist only for scheme construction. Everything on the read, publish and reap paths returns `Option` or `bool` and ticks a counter. The fine-grained reason a header was rejected is kept as a debug-level detail, not a return value.
 
@@ -381,7 +381,7 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 
 - **Feature-gated.** `memmap2::Mmap::map` sits behind a default-on Cargo feature, `mmap`, in one module, `src/map.rs`.
   - The crate is `#![deny(unsafe_code)]`, and only that module carries `#[allow(unsafe_code)]`.
-  - Clippy's `undocumented_unsafe_blocks` lint is set to `deny`, as `impcraft-shm` does now.
+  - Clippy's `undocumented_unsafe_blocks` lint is set to `deny`, as the viewer's `shm` crate does now.
 - **The `SAFETY:` comment** cites contract §6.5, the mutation rule. It says:
   - the map is read-only and never exposed mutably;
   - a conforming process only renames over or unlinks a segment;
@@ -393,7 +393,7 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 | Risk | Where it bites | Mitigation |
 |---|---|---|
 | A non-conforming tool truncates or rewrites a segment in place | Any mapped reader | Contract rule §6.5, documented in the README. The reaper never truncates. |
-| The volume is unmounted while mapped | Thresher's root is a separate APFS volume (`/Volumes/CommonkitStore`); ejecting it under a running ImpCraft | Documented. A long-lived viewer can choose `read` for small arrays. |
+| The volume is unmounted while mapped | Thresher's root is a separate APFS volume (`/Volumes/CommonkitStore`); ejecting it under a running viewer app | Documented. A long-lived viewer can choose `read` for small arrays. |
 | A network filesystem | Not supported | The contract requires a local filesystem for the root. |
 
 ## 8. Decision C5: feature parity and scope
@@ -401,15 +401,15 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 | Area | In the crate | Notes |
 |---|---|---|
 | Keys, schemes, registry | Yes | Parity, plus the reader/publisher split from C4 |
-| `.npy` header parse and write | Yes | Parse ported from `impcraft-shm`; the writer matches numpy byte for byte |
+| `.npy` header parse and write | Yes | Parse ported from the viewer's `shm` crate; the writer matches numpy byte for byte |
 | Reader: mmap and copy | Yes | mmap behind the `mmap` feature |
-| Typed views, element probe | Yes | Ported from `impcraft-shm` (`as_f32`/`as_f64` become `as_slice::<T>`; `element.rs` as is) |
+| Typed views, element probe | Yes | Ported from the viewer's `shm` crate (`as_f32`/`as_f64` become `as_slice::<T>`; `element.rs` as is) |
 | Touch | Yes | Inconsistency 1 |
 | Writer with all gates | Yes | |
 | Reaper and `.usage.json` | Yes | |
 | Shared-store policy | Yes | |
 | Stats | Yes | |
-| `cache.py` (`TieredPixelCache`) | **No** | A Python adapter for a `PixelCache` protocol. Rust consumers keep their own in-process memos (ImpCraft textures, PlumCraft's memo). |
+| `cache.py` (`TieredPixelCache`) | **No** | A Python adapter for a `PixelCache` protocol. Rust consumers keep their own in-process memos (the viewer app's textures, PlumCraft's memo). |
 | `read.py` (`note`, `attach`) | **No** | Python counter conventions |
 | Digest helpers (`nd1`, `raw`) | Optional (C13) | |
 | PlumCraft handles, locators, `DataRef` resolution, same-host proof | **No** | They stay in PlumCraft (section 9) |
@@ -425,12 +425,12 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 
 ## 9. Migration
 
-### 9.1 ImpCraft: `impcraft-shm`
+### 9.1 The viewer app: its `shm` crate
 
 - `crates/shm` becomes a thin adapter, or disappears.
   - `ui-egui` imports `commonkit::{Segment, Element}`.
   - `commonkit::npy::write_header_v1` replaces the 13 test call sites. It is kept public behind a `test-util` feature, or the tests publish through a `Store`.
-- **ImpCraft's golden rule 2** ("No `unsafe` except `crates/shm`") is reworded: `unsafe` is allowed only in pinned dependencies of the maintainer's own repositories that carry it with `SAFETY:` comments, which today means `commonkit`'s `map.rs`. ImpCraft's own crates then keep `unsafe_code = "forbid"` with no exception.
+- **The viewer app's golden rule 2** ("No `unsafe` except `crates/shm`") is reworded: `unsafe` is allowed only in pinned dependencies of the maintainer's own repositories that carry it with `SAFETY:` comments, which today means `commonkit`'s `map.rs`. The viewer app's own crates then keep `unsafe_code = "forbid"` with no exception.
 - **Viewers gain an LRU touch.** That is a behaviour change worth a "try this" note in `docs/acceptance/`. Segments the maintainer is looking at stop being evicted first.
 - **Trailing bytes and unknown dtypes become misses rather than errors.** The viewer's error text for a "malformed segment" changes to "missing", and the engine reruns, which is the invariant's intent.
 - **Pins and checks.**
@@ -467,8 +467,8 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 | `commonkit/uv.lock` | Regenerate (`uv lock`). It is currently untracked; decide whether to commit it. |
 | `commonkit/README.md`, `CLAUDE.md` | Say "installed as `pycommonkit`, imported as `commonkit`"; add the Rust crate and `docs/contract.md`; `CLAUDE.md` gains the Cargo commands and the cross-language rule. |
 | `commonkit/AI.md` | A new entry in the step that commits, following the `ai-md` skill. |
-| `impcraft/python/pyproject.toml` | `"commonkit>=0.1.0"` becomes `"pycommonkit>=0.1.0"`; `[tool.uv.sources] commonkit = { path = "../../commonkit", editable = true }` becomes `pycommonkit = {…}` |
-| `impcraft/python/uv.lock` | `uv lock` (and `uv sync --frozen` on yellowfin afterwards) |
+| the viewer app's `python/pyproject.toml` | `"commonkit>=0.1.0"` becomes `"pycommonkit>=0.1.0"`; `[tool.uv.sources] commonkit = { path = "../../commonkit", editable = true }` becomes `pycommonkit = {…}` |
+| the viewer app's `python/uv.lock` | `uv lock` (and `uv sync --frozen` on the deployment host afterwards) |
 | `plumcraft/python/pyproject.toml` | `"commonkit"` becomes `"pycommonkit"`, and the source key the same way |
 | `plumcraft/python/uv.lock` | `uv lock` |
 | Other consumers | Search every repository for a `commonkit` dependency line before the switch. The production image-corpus app and impressionist, which the AGENTS file names as using the shared store, may depend on it. |
@@ -491,7 +491,7 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 | A raw segment kind (`.bin` plus a header sidecar) (G6, G9, G10) | A new segment suffix in the contract | **A caution:** a two-file segment can't be published atomically with one rename, and a reaper would have to evict both files together. A 1-d `\|u1` `.npy` is already "raw bytes after a 128-byte header", which PlumCraft uses today. Prefer that, or a single-file raw format, unless a measurement shows the header matters. Keep segment kinds a `#[non_exhaustive]` enum, and keep the extension a function of the kind. |
 | A BLAKE3 key helper (D3) | `KeyScheme` gains an optional `digest` attribute (`md5` by default). A 128-bit BLAKE3 truncation fits the existing 32-hex slot, so paths don't change. | The API says `digest`, never `md5`; the grammar names only 32 hex digits. A BLAKE3 domain needs its own domain or version so a key never mixes algorithms. |
 | A shared-memory ring for streaming (D29) | **Not commonkit.** Research note 13 decides "no shared ring in Q". If ever built, it is a Rust-only writer with copy-out reads under a seqlock and its own `unsafe` review. Its writer mutates a mapped file in place, which the mutation rule (§6.5) forbids for segments. | None. The contract says why a ring is a different object. |
-| Digest helpers (`nd1`, `raw`) | `commonkit.digest` and `commonkit::digest`, if C13 is adopted | Three copies exist: ImpCraft's `publish.digest`, PlumCraft's `data.nd1`, and `Handle::md5_nd1` in PlumCraft's proto crate. ImpCraft's skips byte-order normalisation, so it differs from `nd1` for big-endian arrays. |
+| Digest helpers (`nd1`, `raw`) | `commonkit.digest` and `commonkit::digest`, if C13 is adopted | Three copies exist: the viewer app's `publish.digest`, PlumCraft's `data.nd1`, and `Handle::md5_nd1` in PlumCraft's proto crate. The viewer app's skips byte-order normalisation, so it differs from `nd1` for big-endian arrays. |
 
 ## 11. Risks
 
@@ -499,7 +499,7 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 |---|---|---|---|
 | The two implementations drift again | Medium | Misses, double budgets, or a reaper evicting what the other considers live | The contract, shared vectors and CI's `conformance` job. A behaviour change lands in both languages in one PR. |
 | A reaper runs with partial policy (inconsistency 16) | Medium on thresher once Rust processes reap | A tree evicted down to nothing | C7: a `.policy.json` at the root. Meanwhile, Rust hosts pass all `COMMONKIT_STORE_*` variables to children, and the app bundle sets them (`launchctl setenv` or `LSEnvironment`). |
-| SIGBUS from a truncated or unmounted file | Low | ImpCraft's UI crashes | §6.5 and §7.3 |
+| SIGBUS from a truncated or unmounted file | Low | The viewer app's UI crashes | §6.5 and §7.3 |
 | Two reapers race on a stale lock | Low | Two concurrent reapers. Unlinking twice is harmless (ENOENT is skipped); `.usage.json.tmp` could interleave, and then parses as stale (`None`) | Documented and tested (C8). Optionally `flock` in contract version 2. |
 | The rename breaks a consumer not listed | Medium | `uv sync` fails | The search step in 9.3; failure is loud |
 | Squatting before release | Low | The name is lost | Publish early (9.3) |
@@ -519,30 +519,30 @@ Tests are exempt, as in `clippy.toml`. All arithmetic on header fields is checke
 | C7 | Tree policy | — | **Decided (the maintainer, 2026-10-27): add `.policy.json`, obeyed if present, and the file wins over the environment** ("policy at the store root obeyed if present"; then "File over environment"). The root still comes from `COMMONKIT_STORE_ROOT` or the default, since that is how a process finds the file; the environment fills only what the file leaves out, then the defaults. This changes `shared.py`'s "only from the environment" rule. |
 | C8 | Reap lock | — | **Decided (the maintainer, 2026-10-27): keep `O_EXCL` plus the 300 s break** in version 1, as recommended. |
 | C9 | Do Rust publishers reap? | — | **Decided (the maintainer, 2026-10-27): Rust publishers reap, as Python**, rate-limited. |
-| C10 | Platforms | — | **Decided (the maintainer, 2026-10-27): keep Windows.** "Just don't delete support from shared infrastructure like commonkit. There is commonkit work already complete on windows, and we will merge it in later." The crate and the contract must not remove or preclude Windows: keep `impcraft-shm`'s Windows branch, and leave room for a Windows section in the contract (Windows can't unlink an open or mapped file, which touches §6.5 and the reaper) to be filled when the existing Windows work is merged. An earlier recommendation here to drop Windows was the AI's mistake. |
+| C10 | Platforms | — | **Decided (the maintainer, 2026-10-27): keep Windows.** "Just don't delete support from shared infrastructure like commonkit. There is commonkit work already complete on windows, and we will merge it in later." The crate and the contract must not remove or preclude Windows: keep the viewer's `shm` crate's Windows branch, and leave room for a Windows section in the contract (Windows can't unlink an open or mapped file, which touches §6.5 and the reaper) to be filled when the existing Windows work is merged. An earlier recommendation here to drop Windows was the AI's mistake. |
 | C11 | Versioning | — | **Decided (the maintainer, 2026-10-27): one version and one tag** for both; the contract versions separately. |
 | C12 | Header bytes | — | **Decided (the maintainer, 2026-10-27): byte-identical headers**, pinned by vectors. |
 | C13 | Digest helpers | — | **Decided (the maintainer, 2026-10-27): digest helpers in both languages**, low priority (step 10). |
-| C14 | `cache.py` in Rust | — | **Decided (the maintainer, 2026-10-27): leave it out.** `TieredPixelCache` is Alexandria's access policy over the store (an in-process memo of attached mappings), not part of the contract; Python keeps it unchanged, and a Rust caller that wants the same holds its attached segments itself. |
+| C14 | `cache.py` in Rust | — | **Decided (the maintainer, 2026-10-27): leave it out.** `TieredPixelCache` is the non-public app's access policy over the store (an in-process memo of attached mappings), not part of the contract; Python keeps it unchanged, and a Rust caller that wants the same holds its attached segments itself. |
 | C15 | Republishing an existing key | — | **Decided (the maintainer, 2026-10-27): never rewrite.** A torn file is replaced; a whole file with the same dtype, shape and order is touched; a different array is a key collision, "a major system error", which fails loudly (Python raises `KeyCollision`, Rust returns `Err`), counted and logged, with the existing file untouched. `verify_republish` (off by default, on in conformance and CI) also compares bytes. `publish_if_absent` is dropped. The first recommendation, rewrite by default for parity, was wrong: "Why would I rewrite an existing file?" |
 | C16 | `pycommonkit` and crate names, MIT, 3.11+ | — | **Decided** (section 2) |
 | C17 | Write-once rules and fsync | — | **Decided** (section 2): the rules open the contract; fsync is a policy option, off by default |
 
 ## 13. Step plan
 
-Estimates are in working days for one agent with maintainer review. Each step is its own branch and PR in commonkit, except steps 8 and 9, which land in ImpCraft and PlumCraft.
+Estimates are in working days for one agent with maintainer review. Each step is its own branch and PR in commonkit, except steps 8 and 9, which land in the viewer app and PlumCraft.
 
 | Step | Content | Exit criteria | Days |
 |---|---|---|---|
-| 1. Rename and licence | Section 9.3 in commonkit, ImpCraft and PlumCraft. Search the other repositories for `commonkit` dependency lines. Publish `pycommonkit 0.1.0` to PyPI. | `uv build` gives `pycommonkit-0.1.0` with `License-Expression: MIT`; both consumers `uv sync` and their suites pass; PyPI shows the project | 0.5–1 |
+| 1. Rename and licence | Section 9.3 in commonkit, the viewer app and PlumCraft. Search the other repositories for `commonkit` dependency lines. Publish `pycommonkit 0.1.0` to PyPI. | `uv build` gives `pycommonkit-0.1.0` with `License-Expression: MIT`; both consumers `uv sync` and their suites pass; PyPI shows the project | 0.5–1 |
 | 2. Contract and vectors | `docs/contract.md` (section 6) with C4, C6, C7, C8 and C15 as decided. `conformance/vectors/`: keys valid and invalid, key-to-path, headers (including growth-padding shapes, versions 2 and 3, Fortran, big-endian), dtype admission, torn and trailing files. Small `.npy` fixtures written by numpy, plus a generator script. | The maintainer accepts the contract; the vectors are reproducible from the generator | 2 |
 | 3. Python to contract | Python's side of C6 (and C7 if adopted), the `FSYNC` policy option, off by default (C17), and the existing-key rule with `KeyCollision` and `VERIFY_REPUBLISH` (C15). `tests/test_vectors.py` reads the shared vectors. | Every vector passes in Python; the 72 existing tests pass; no new dependency | 1–1.5 |
 | 4. Rust skeleton and CI | The `rust/` workspace, lints, `deny(unsafe_code)`, the `mmap` feature, crate metadata (`license = "MIT"`), GitHub Actions with three jobs on Linux (no macOS CI) | CI is green on an empty crate; `cargo package --list` includes the licence; `uv build` still excludes `rust/` | 1 |
-| 5. Keys and `.npy` | Scheme, registry, grammar, relpath. Header parse (ported from `impcraft-shm`) and a numpy-exact writer. Fuzz tests. | Every key and header vector passes in Rust; the headers it writes equal numpy's bytes for every vector shape | 1.5–2 |
+| 5. Keys and `.npy` | Scheme, registry, grammar, relpath. Header parse (ported from the viewer's `shm` crate) and a numpy-exact writer. Fuzz tests. | Every key and header vector passes in Rust; the headers it writes equal numpy's bytes for every vector shape | 1.5–2 |
 | 6. Reader, writer, policy | `Store`, `shared_store`, environment (and policy file), mmap and copy attach, touch, typed views and element probe, publish with every gate and the existing-key rule (C15), stats. | Rust ports of Python's store, shared and LRU tests pass; Clippy is clean with the panic lints; no `unsafe` outside `map.rs`; `--no-default-features` builds and passes | 3 |
 | 7. Reaper | Lock, walk, LRU toward both targets, `.usage.json`, rate limit, tmp sweep | Ports of Python's six reaper tests pass, plus refusal and bystander tests | 2 |
 | 8. Cross-language conformance | `ck-conform` (publish, attach, reap, usage, stats as JSON); `tests/test_conformance.py`; Rust tests that call `uv run python`. Cases: Python publishes and Rust attaches; Rust publishes and Python attaches, with bytes and headers equal; LRU touch from either side protects a segment from the other's reaper; both reapers on one tree, concurrently and in turn, reaching the same survivor set; a stale lock from either language; a torn or partial segment and an orphan `.tmp`; `.usage.json` written by one and trusted by the other's budget gate; publishers racing on one key in both languages; a reader holding a mapping while the other reaper unlinks | The `conformance` CI job is green on Linux, and the same suite passes locally on macOS (thresher); thresher's real tree is reaped by a Rust reaper in a dry run that reports the same set as Python's; then publish `commonkit 0.1.0` to crates.io | 2.5–3 |
-| 9. ImpCraft migration | Section 9.1. Rework golden rule 2. Add an acceptance "try this" note (a viewed segment survives reaping). | `cargo test`, `clippy` and `cargo xtask layers` pass; kittest snapshots are unchanged; the maintainer checks the viewer | 1–1.5 |
+| 9. Viewer app migration | Section 9.1. Rework golden rule 2. Add an acceptance "try this" note (a viewed segment survives reaping). | `cargo test`, `clippy` and `cargo xtask layers` pass; kittest snapshots are unchanged; the maintainer checks the viewer | 1–1.5 |
 | 10. PlumCraft migration | Section 9.2, including the `plum` scheme in Rust, the gates and reaper, the existing-key rule (C15), the `.hello` cleanup and the `plan.md` corrections. Optionally C13's digest helpers in commonkit, with both consumers adopting them. | PlumCraft's D1 and D2 conformance pass in all modes; no `unsafe` in PlumCraft's own crates (it takes commonkit's default `mmap` feature, C5) | 1.5–2.5 |
 | **Total** | | | **17–21** |
 
