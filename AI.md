@@ -43,6 +43,12 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — commonkit 0.1.0 published to crates.io (the maintainer; Claude Opus 5.5, Claude Code, for the tag and records)
+
+**The release was the maintainer's.** They made the crates.io account and token, and ran `cargo publish -p commonkit` from a clean `main` at `cdffb50`, after PR #10 had passed CI. Their first attempt, before PR #10 was committed, was refused by cargo for uncommitted changes; the AI advised committing through CI rather than `--allow-dirty`.
+
+**What the AI did.** Made `msrv` a required check on `main` (at the maintainer's request); confirmed the published crate through the crates.io API (0.1.0, MIT, `rust_version` 1.95, the repository link); tagged `cdffb50` as `commonkit-v0.1.0` (annotated) and pushed the tag; updated `STATUS.md` (~5 LOC). The docs.rs build had not appeared when this was written (its pages still answered "no such crate"), so the docs.rs result is not recorded here.
+
 ### 2026-10-28 — crates.io prep: package contents, a crate README, the MSRV checked, two CI defects found (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked for.** "Prep for crates.io", after the public-repository prep; then CPM. The maintainer's attempt to publish before committing was refused by cargo, and the AI advised against `--allow-dirty` so that 0.1.0 matches a commit that passed CI.

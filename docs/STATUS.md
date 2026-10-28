@@ -1,13 +1,13 @@
 # Status
 
-*Updated 2026-10-28 (crates.io prep).*
+*Updated 2026-10-28 (commonkit 0.1.0 published).*
 
 ## Where things stand
 
 - **Lifted** from `seantrue/commonkit` (`main` at `4dbfc7d`; the plan, contract and vectors from its `rust-crate-plan` branch) into this repository with a fresh history. The Python package is unchanged apart from its distribution name (`pycommonkit`, imported as `commonkit`), SPDX licence metadata (`license = "MIT"`, `license-files`), and `module-name = "commonkit"` for uv_build.
 - **Plan:** `docs/rust-crate-plan.md`. Every decision, C1–C17, is the maintainer's. Section 13 is the step plan.
 - **Step 1 (layout) and step 2 (contract and vectors) done:** `docs/contract.md` version 1, `conformance/vectors/` (98 files), `conformance/generate.py` (byte-for-byte reproducible), `tests/test_vectors.py`. The suite is 369 passed and 91 xfailed: the xfails are the behaviour Python adopts in step 3 (contract Appendix A).
-- **Nothing published:** PyPI `pycommonkit` and crates.io `commonkit` were free on 2026-10-27.
+- **Published:** `commonkit` 0.1.0 on crates.io (2026-10-28, from `cdffb50`, tag `commonkit-v0.1.0`). PyPI `pycommonkit` is not published yet; the name was free on 2026-10-27.
 
 ## Done since the lift (2026-10-28)
 
@@ -111,7 +111,7 @@ The maintainer: "Add a way to forcibly remove an existing cache entry (if not in
 - **Minimum Rust version 1.95, checked.** The library built on 1.95, but `tests/hostile_input.rs` did not: 1.95 inferred `T = str` for `pick` from the expected argument type, where later compilers infer it from the slice. Explicit `pick::<&str>` builds on both and satisfies clippy (`*rng.pick(…)` did not). A new CI job, `msrv`, runs the crate's tests on 1.95 with and without `mmap`.
 - **Docs.** `cargo doc` with `-D warnings` failed on a public doc link to the private `STALE_LOCK_S`; the text now gives the value (300 s). CI builds the docs that way.
 - **actionlint** (1.7.12) found a real defect from step 4: in `uv build leaves rust/ out`, `! tar … | grep -q '/rust/'` was not the last line, and bash `-e` ignores a negated command, so only the wheel check counted. The checks are `if …; then exit 1; fi` now; the sdist and wheel have no `rust/` today.
-- **Still the maintainer's:** a crates.io account and `cargo login`, then `cargo publish -p commonkit`. `msrv` is not yet a required check on `main`.
+- **Published** by the maintainer with `cargo publish -p commonkit` from a clean `main` at `cdffb50`, tagged `commonkit-v0.1.0`. `msrv` is now a required check on `main`, with `python`, `rust` and `conformance`.
 
 ## Next
 
@@ -130,5 +130,6 @@ The maintainer: "Add a way to forcibly remove an existing cache entry (if not in
    - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
    - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
    - Deferred, now done (crates.io prep): CI builds on 1.95 as well as stable, and the integration tests are left out of the crate package.
-3. **Steps 9–10:** the viewer app and PlumCraft migrations, after `commonkit` 0.1.0 is published. Step 8 is done above.
-4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.
+3. **Steps 9–10:** the viewer app and PlumCraft migrations, now unblocked: `commonkit` 0.1.0 is on crates.io. Step 8 is done above.
+4. **PyPI:** publish `pycommonkit` 0.1.0 (project links and classifiers in `pyproject.toml`, a TestPyPI run, then `uv publish`).
+5. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.
