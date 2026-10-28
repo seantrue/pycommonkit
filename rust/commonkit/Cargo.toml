@@ -19,5 +19,15 @@ default = ["mmap"]
 # Without it no `unsafe` is compiled and attach copies instead. Empty until step 6.
 mmap = []
 
+[dependencies]
+# Variant patterns (contract §3.2). Its syntax has no backreferences or look-around, which is
+# the subset the contract allows.
+regex = "1.11"
+
+[dev-dependencies]
+# Tests read conformance/vectors/*.json and check fixture digests.
+serde_json = "1"
+sha2 = "0.10"
+
 [lints]
 workspace = true

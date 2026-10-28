@@ -20,3 +20,8 @@
 
 /// The on-disk contract version this crate implements (contract §1.1).
 pub const CONTRACT_VERSION: u32 = 1;
+
+pub mod keys;
+pub mod npy;
+
+pub use keys::{Key, KeyError, KeyScheme, Registry, Variants};

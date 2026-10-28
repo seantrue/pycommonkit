@@ -1,6 +1,6 @@
 # Status
 
-*Updated 2026-10-28.*
+*Updated 2026-10-28 (steps 4 and 5).*
 
 ## Where things stand
 
@@ -15,12 +15,30 @@
 - **Read back by copy:** `verify_republish` compares named-field bytes only; padding bytes, which a copying `np.load` zeroes, never decide a collision (contract §5.8, §6.4; vectors `existing_key.padded_*`).
 - **Ruff clean:** the four `try`/`except`/`pass` handlers in `cache.py` carry `noqa: S110` with the reason; `collections.abc.Iterable` and `X | None` in `keys.py` and `read.py`.
 
-## Step 3: Python to the contract (2026-10-28, branch `step3-python`, uncommitted)
+## Step 3: Python to the contract (2026-10-28, merged as PR #1, `main` at `b99151e`)
 
 - **Appendix A4–A14 done**; every contract clause that read "Python: changes in step 3" now reads "Python conforms since pycommonkit 0.1.0 (A*n*)". No vector carries `"python": "step3"`; the generator still reproduces every fixture byte for byte (only the JSON's marks and three stale notes changed; no `.npy` fixture changed).
 - **Suite:** 548 passed, 0 xfailed (was 375 passed, 87 xfailed); `ruff check .` clean; clean under `-W error`.
 - **What changed:** `store.py` (headers to 1 MiB with a prefix check, broad torn handling, object dtypes and oversized headers declined, the existing-key rule with `KeyCollision` and `verify_republish`, `fsync` with `F_FULLFSYNC` on macOS, segment-shaped reaping and the `.tmp` sweep, free space 0 on any failure, integer-only `.usage.json`); `shared.py` (`.policy.json`, the number grammar, the flags); `cache.py` lets `KeyCollision` through.
 - **Behaviour a consumer may notice:** a different array under an existing key now raises `KeyCollision` instead of silently replacing the segment; a republish no longer counts `shm_publish`; `.npy` files outside the segment layout are no longer reaped; a `.policy.json` at the root now overrides the environment.
+
+## Step 4: Rust skeleton and CI (2026-10-28, branch `step4-rust-skeleton`, uncommitted)
+
+- **`rust/`** is a Cargo workspace (edition 2024, `rust-version = "1.95"` as ImpCraft and PlumCraft) with one crate, `commonkit` 0.1.0, `license = "MIT"`. `rust/commonkit/LICENSE` is a copy of the root `LICENSE`, because `license-file` alongside `license` draws a cargo warning; `tests/license.rs` keeps the two identical. `cargo package --list` includes it.
+- **Lints:** the crate root denies `unwrap_used`, `expect_used`, `panic`, `unimplemented`, `todo` and `unreachable`, and `rust/clippy.toml` allows the first three in tests. The workspace sets `unsafe_code = "deny"` (not `forbid`, so step 6's `src/map.rs` can allow it) and `undocumented_unsafe_blocks = "deny"`. The default-on `mmap` feature exists and is empty until step 6. PlumCraft keeps the default features (C5).
+- **CI:** `.github/workflows/ci.yml` runs on Linux only (the maintainer: "No ci on mac"; macOS is checked on thresher). It has three jobs:
+  - `python`: pytest on 3.11 and 3.13, ruff, and a `uv build` check that leaves out `rust/`.
+  - `rust`: fmt, clippy with all features and with none, tests both ways, and the package list.
+  - `conformance`: `cargo test --test 'vectors*'` for now.
+  - The workflow passes `actionlint`; it can't run until it is pushed. Nothing in it precludes a Windows job later.
+- **`uv build`** still leaves `rust/` and `.github/` out of both the sdist and the wheel.
+
+## Step 5: keys and `.npy` in Rust (2026-10-28, same working tree, uncommitted)
+
+- **`keys`:** `Key::parse` (the grammar, in full), `KeyScheme` (ASCII-only digest folding on build, never on parse; variants as a closed token set, or a `regex` pattern compiled bare and then anchored `\A(?:…)\z`; the variant must also be a token; dtypes as canonical descriptors), and `Registry` (process-global `Registry::global()`, poison-tolerant; identity compares pattern text).
+- **`npy`:** `read_prefix` refuses `HLEN > 2^20` before reading any text. `parse_header` and `parse_npy` accept versions 1 to 3, Latin-1 and UTF-8, both byte orders, Fortran order, trailing bytes, 16-byte alignment and other literal spellings. They read every §5.4 descriptor, typed (`Typed`) for the listed kinds and as a `Descr` with its `repr` text otherwise, and miss object dtypes, titles and long doubles. `encode_header` and `encode_npy` write numpy's bytes. No `unsafe`.
+- **Tests:** 31 Rust tests. Every key vector (18 build, 24 parse, 8 registry) and every header vector (53) passes, read from `conformance/vectors/` at test time. The writer reproduces all 53 fixtures byte for byte from their array specs, and the file-level outcome of the 25 `reads.json` files is right. Hostile input: every truncation of every fixture, 20 000 mutated fixtures, 20 000 random header texts, 5 000 written-then-read headers, and 50 000 random keys checked against the grammar regex.
+- **Dependencies:** `regex` (MIT OR Apache-2.0); dev-only `serde_json` and `sha2` (both MIT OR Apache-2.0).
 
 ## Next
 
@@ -33,6 +51,11 @@
    - A failed directory sync after the rename counts as a failed publish and leaves the segment in place.
    - Swept `.tmp` files are not counted.
    - Rust needs the `regex` crate for variant patterns (missing from the plan's dependency list).
-2. **Step 3 review and merge** (above).
-3. **Steps 4–10:** the Rust crate in `rust/`, cross-language conformance, then the ImpCraft and PlumCraft migrations.
+2. **Steps 4 and 5:** decided by the maintainer 2026-10-28 ("Yes for all"):
+   - A closed variant set compares as a **set** (contract §3.4) in both languages; Python now compares sets (vector `keys.registry.variants_reordered`).
+   - Forms must be distinct (contract §3.2) in both languages; Python now refuses duplicates.
+   - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
+   - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
+   - Deferred: CI builds only on stable Rust (the stated minimum, 1.95, is unchecked); the integration tests read `../../conformance` and must be excluded from the crate package before publishing.
+3. **Steps 6–10:** the store, policy and reaper in Rust, cross-language conformance, then the ImpCraft and PlumCraft migrations.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.
