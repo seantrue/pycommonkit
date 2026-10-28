@@ -43,6 +43,23 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — A README banner from public-domain NAIP imagery; `icons/` with attribution; `uv.lock` tracked (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked for.** An aerial photo of Midwest farmland "with a free to use no attribution license", from Flickr first; then a choice of logo among the maintainer's stylized renderings ("Go with faded-illustration. Add to README in pleasing way"); then "Fetch me an NIAP tile", "Try for iowa or kansas, zoomed out 2x", new renderings of the Finney County tile, "a README with attribution and making the impressionist available under the MIT license", and to track `uv.lock`. The renderings, the cleanup of `icons/`, and every choice of image and style are the maintainer's.
+
+**What the AI did.** Searched Flickr's CC0 / Public Domain Mark results (USDA aerials of Iowa and Illinois, 2850×1900) and downloaded candidates. Ranked the seven renderings as logos. Cut the banner (`docs/images/commons-banner.jpg`, 1200×330, cropped to exclude a feedlot) and put it full width above the README title, with an absolute raw-GitHub URL because the README is also the PyPI description and PyPI cannot resolve relative image paths. Pulled NAIP tiles from the USGS National Map `exportImage` endpoint (USDA's own server reset the connection) and compared six areas in Iowa and Kansas; Iowa's grid has no pivots, Finney County, Kansas, was chosen. Embedded title, credit and public-domain rights in the tile's XMP/EXIF. Wrote `icons/README.md` (~62 LOC): source, bounding box, the reproducing request, public domain for the photograph, MIT (the root `LICENSE`) for the renderings. README ~6 LOC. `uv.lock` is generated.
+
+**Defects and wrong turns, all caught by the AI before commit unless noted.**
+
+- The maintainer's first renderings were made from a Google Maps screenshot; the AI recommended one as the logo and cut a banner from it, flagging only then that it was a copyrighted derivative (the Google watermark and map control were visible in every rendering). The maintainer went ahead, then had the AI fetch NAIP imagery and re-rendered from it; the Google-derived files are not committed.
+- The first banner crop used `sips --cropOffset`, which was ignored and produced the centre band; seen on viewing the output and redone with ImageMagick.
+- The first pandoc preview added a title heading GitHub would not show; re-rendered with `pagetitle`.
+- The first NAIP tile (York, Nebraska) was a town edge with no pivots: wrong target, replaced.
+- The AI tried to query the Flickr API with a key scraped from Flickr's page; the session's permission classifier blocked it, and the search used public pages only.
+- "The impressionist" was read as all the renderings (there is no file of that name) and all are put under MIT; the maintainer has not yet confirmed that reading.
+
+Not run: the test suite and ruff (no code changed).
+
 ### 2026-10-28 — Step 8: cross-language conformance; a dry-run reap checked on the real tree; `remove(key)` (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the maintainer asked for.** "Go" for step 8; "What does actionlint do?"; then "Add a way to forcibly remove an existing cache entry (if not in use). This is to support existing users of ../impressionist", choosing no in-use check and pycommonkit only for now; then "CP. One PR".

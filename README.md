@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/seantrue/pycommonkit/main/docs/images/commons-banner.jpg"
+       alt="Illustrated aerial view of farmland: square fields and center-pivot circles on a shared road grid"
+       width="100%">
+</p>
+
 # pycommonkit
 
 Named shared-memory segments for numpy arrays. One process decodes and
