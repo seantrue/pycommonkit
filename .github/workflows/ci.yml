@@ -1,0 +1,75 @@
+# Linux only: the maintainer, 2026-10-28, "No ci on mac"; macOS is checked locally on thresher.
+# Nothing here may preclude Windows (contract §12); a Windows job is not run yet.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      # 3.11 is the floor the model venvs need; 3.13 is current. Two runs in one job, not a matrix.
+      - name: pytest (3.11)
+        run: uv run --python 3.11 --extra dev pytest -q
+      - name: pytest (3.13)
+        run: uv run --python 3.13 --extra dev pytest -q
+      - name: ruff
+        run: uv run --python 3.13 --extra dev ruff check .
+      - name: uv build leaves rust/ out
+        run: |
+          uv build --out-dir dist-ci
+          ! tar -tzf dist-ci/*.tar.gz | grep -q '/rust/'
+          ! unzip -Z1 dist-ci/*.whl | grep -q '^rust/'
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --all-features -- -D warnings
+      - run: cargo clippy --all-targets --no-default-features -- -D warnings
+      - run: cargo test
+      - run: cargo test --no-default-features
+      - name: cargo package includes LICENSE
+        run: cargo package --list -p commonkit | grep -qx LICENSE
+
+  conformance:
+    # For now the Rust tests that read conformance/vectors/; step 8 adds ck-conform and the
+    # cross-language tests that drive Python.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo test -p commonkit --test 'vectors*'

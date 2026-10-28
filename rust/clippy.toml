@@ -1,0 +1,5 @@
+# The crate root denies unwrap/expect/panic/unimplemented/todo/unreachable (golden rule: never
+# crash; hostile input is a miss, not a panic). Tests may use them.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
