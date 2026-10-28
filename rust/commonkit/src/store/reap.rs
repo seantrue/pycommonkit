@@ -221,7 +221,7 @@ impl Store {
     ///
     /// Never fails and never panics. A disabled store doesn't reap; a suspicious root counts
     /// `shm_reap_refused`; a lock held by another reaper means no reap this time (a lock older
-    /// than [`STALE_LOCK_S`] is broken, and this call still returns without reaping). A failed
+    /// than 300 s is broken, and this call still returns without reaping). A failed
     /// unlink other than "already gone" is skipped and counted `shm_reap_failed`.
     pub fn reap(&self, budget: Duration) -> ReapReport {
         self.reap_with(&ReapOptions {

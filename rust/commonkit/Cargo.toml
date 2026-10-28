@@ -9,6 +9,11 @@ authors.workspace = true
 repository.workspace = true
 keywords = ["numpy", "npy", "mmap", "shared-memory", "cache"]
 categories = ["caching", "filesystem"]
+readme = "README.md"
+# The integration tests stay in the repository: seven of the nine read `conformance/vectors/`
+# and one the root `LICENSE`, two levels above the crate, so packaged they would fail. The unit
+# tests in `src/` are self-contained and ship.
+exclude = ["tests/"]
 # `LICENSE` beside this file is a copy of the repository's (cargo can't package a file outside
 # the crate without `license-file`, which conflicts with `license`); tests/license.rs keeps the
 # two identical.

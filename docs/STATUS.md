@@ -1,6 +1,6 @@
 # Status
 
-*Updated 2026-10-28 (step 8).*
+*Updated 2026-10-28 (crates.io prep).*
 
 ## Where things stand
 
@@ -98,11 +98,20 @@ Rust 135 passed (both feature sets), clippy clean on macOS and the Windows targe
 - **Disagreement found and fixed:** the Rust test helper `spec_fill` (copied into `ck-conform`) wrote big-endian payloads for `>M8`/`>m8`, but the generator's `arange(…, dtype=">i8") * 1000 + seed` yields native order, which is what the fixtures hold. Both copies now write little-endian. Test-only; no library or contract change.
 - **Gates:** Python 621 passed, ruff clean, the generator still reproduces the vectors. Rust: `cargo test` both feature sets, clippy `-D warnings` both ways and for `x86_64-pc-windows-msvc` both ways, `cargo fmt --check`; no new `unsafe`. `actionlint` is not installed on thresher and was not run on the new workflow (it parses as YAML).
 - **CI:** the `conformance` job now also installs uv and runs the pytest suite (Python 3.11) and `cargo test -p ck-conform` with `CK_CONFORM_REQUIRE_PYTHON=1`; the `python` job leaves `test_conformance.py` to it.
-- **Before publishing `commonkit` 0.1.0:** exclude the tests that read outside the crate (`tests/vectors_*`, `tests/license.rs`, and `common/`) from the package, since `cargo package --list` includes them; check the stated MSRV 1.95; run `actionlint`; see CI green once pushed.
+- **Before publishing `commonkit` 0.1.0:** done in the crates.io prep below.
 
 ## `remove(key)` (2026-10-28)
 
 The maintainer: "Add a way to forcibly remove an existing cache entry (if not in use). This is to support existing users of ../impressionist", then chose **no in-use check** and **pycommonkit only for now**. Impressionist's checkpoint `reset=True` recomputes a value and relied on publish rewriting the segment; under C15 a republish is only a touch, or a `KeyCollision`, so reset no longer replaced anything. `SharedArrayStore.remove(key)` and `Store::remove(key)` unlink the segment (regular files only, never a symlink; readers keep their bytes), count `shm_removed` / `shm_remove_failed`, and never raise (contract §6.7, W1's one exception). Tests in both languages, plus a cross-language case: removed in one language, replaced in the other. **Still to do in impressionist:** call `remove` before republishing on reset, and switch its dependency from `../commonkit` to pycommonkit.
+
+## crates.io prep (2026-10-28)
+
+- **Package contents.** `exclude = ["tests/"]`: seven of the nine integration tests read `conformance/vectors/` and one reads the root `LICENSE`, so the earlier plan to exclude only some of them would have shipped tests that fail. The unit tests in `src/` ship. `cargo package` packs 18 files (57 KiB compressed) and builds them alone; `cargo publish --dry-run` stops only at the upload.
+- **`rust/commonkit/README.md`** is the crates.io page (`readme = "README.md"`): what the crate is, the invariant, a full example, features, platforms and the minimum Rust version. `lib.rs` compiles it as a doctest, so the example can't drift from the API.
+- **Minimum Rust version 1.95, checked.** The library built on 1.95, but `tests/hostile_input.rs` did not: 1.95 inferred `T = str` for `pick` from the expected argument type, where later compilers infer it from the slice. Explicit `pick::<&str>` builds on both and satisfies clippy (`*rng.pick(…)` did not). A new CI job, `msrv`, runs the crate's tests on 1.95 with and without `mmap`.
+- **Docs.** `cargo doc` with `-D warnings` failed on a public doc link to the private `STALE_LOCK_S`; the text now gives the value (300 s). CI builds the docs that way.
+- **actionlint** (1.7.12) found a real defect from step 4: in `uv build leaves rust/ out`, `! tar … | grep -q '/rust/'` was not the last line, and bash `-e` ignores a negated command, so only the wheel check counted. The checks are `if …; then exit 1; fi` now; the sdist and wheel have no `rust/` today.
+- **Still the maintainer's:** a crates.io account and `cargo login`, then `cargo publish -p commonkit`. `msrv` is not yet a required check on `main`.
 
 ## Next
 
@@ -120,6 +129,6 @@ The maintainer: "Add a way to forcibly remove an existing cache entry (if not in
    - Forms must be distinct (contract §3.2) in both languages; Python now refuses duplicates.
    - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
    - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
-   - Deferred: CI builds only on stable Rust (the stated minimum, 1.95, is unchecked); the integration tests read `../../conformance` and must be excluded from the crate package before publishing.
+   - Deferred, now done (crates.io prep): CI builds on 1.95 as well as stable, and the integration tests are left out of the crate package.
 3. **Steps 9–10:** the viewer app and PlumCraft migrations, after `commonkit` 0.1.0 is published. Step 8 is done above.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.

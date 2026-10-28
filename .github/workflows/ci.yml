@@ -36,8 +36,9 @@ jobs:
       - name: uv build leaves rust/ out
         run: |
           uv build --out-dir dist-ci
-          ! tar -tzf dist-ci/*.tar.gz | grep -q '/rust/'
-          ! unzip -Z1 dist-ci/*.whl | grep -q '^rust/'
+          # Not `! cmd`: bash -e ignores a negated command, so only the last line would count.
+          if tar -tzf dist-ci/*.tar.gz | grep -q '/rust/'; then exit 1; fi
+          if unzip -Z1 dist-ci/*.whl | grep -q '^rust/'; then exit 1; fi
 
   rust:
     runs-on: ubuntu-latest
@@ -57,8 +58,34 @@ jobs:
       - run: cargo clippy --all-targets --no-default-features -- -D warnings
       - run: cargo test
       - run: cargo test --no-default-features
-      - name: cargo package includes LICENSE
-        run: cargo package --list -p commonkit | grep -qx LICENSE
+      - name: cargo package includes LICENSE and README, and leaves out tests/
+        run: |
+          cargo package --list -p commonkit > "$RUNNER_TEMP/package-list.txt"
+          grep -qx LICENSE "$RUNNER_TEMP/package-list.txt"
+          grep -qx README.md "$RUNNER_TEMP/package-list.txt"
+          if grep -q '^tests/' "$RUNNER_TEMP/package-list.txt"; then exit 1; fi
+      # Builds the crate from its packaged files alone, as crates.io will.
+      - run: cargo package -p commonkit
+      # docs.rs builds these on publish; a broken intra-doc link fails here first.
+      - run: cargo doc -p commonkit --no-deps
+        env:
+          RUSTDOCFLAGS: -D warnings
+
+  msrv:
+    # The stated rust-version (1.95). Inference changes after it once broke the test build
+    # (tests/hostile_input.rs, 2026-10-28), so build and test on it, not only on stable.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo test -p commonkit
+      - run: cargo test -p commonkit --no-default-features
 
   conformance:
     # Plan step 8: the Rust tests that read conformance/vectors/, then the cross-language suite,
