@@ -319,6 +319,8 @@ def keys_doc() -> dict:
     r("forms_reordered", base, {**base, "forms": ["f32chw", "pil"]}, "error",
       note="the first form is the default, so order is part of the scheme")
     r("other_variants", base, {**base, "variants": ["o0"]}, "error")
+    r("variants_reordered", base, {**base, "variants": ["o1", "o0"]}, "idempotent",
+      note="a closed variant set: order carries no meaning (forms differ: the first is the default)")
     r("other_dtypes", base, {**base, "dtypes": {}}, "error")
     pat = {"version": "v1", "forms": ["wav"], "variant_pattern": "sr[0-9]+"}
     r("same_pattern", pat, pat, "idempotent")

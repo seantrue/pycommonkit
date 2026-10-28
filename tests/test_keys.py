@@ -134,3 +134,9 @@ def test_the_pixels_scheme_still_spells_its_keys_exactly_as_before():
     assert pixels.relpath(pixels.key(D1, "o1", "pil")) == f"pil/ab/{D1}.o1.npy"
     assert pixels.key(D1, "o1", "pil") != pixels.key(D1, "o1", "bgr3")
     assert pixels.key(D1, "o1", "pil") != pixels.key(D1, "o0", "pil")
+
+
+def test_forms_must_be_distinct():
+    """Contract §3.2: forms are distinct tokens. Rust refused duplicates; Python didn't."""
+    with pytest.raises(ValueError, match="distinct"):
+        KeyScheme("ckdupforms", "v1", ("pil", "pil"), ("o0",))

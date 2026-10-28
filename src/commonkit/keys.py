@@ -78,6 +78,8 @@ class KeyScheme:
         for form in self.forms:
             if not _TOKEN_RE.fullmatch(form):
                 raise ValueError(f"form must be [a-z0-9]+, got {form!r}")
+        if len(set(self.forms)) != len(self.forms):
+            raise ValueError(f"{self.domain}: forms must be distinct, got {self.forms}")
 
         if isinstance(variants, str):
             self.variants: tuple[str, ...] = ()
@@ -195,7 +197,9 @@ def register(scheme: KeyScheme) -> KeyScheme:
     if prior is not None:
         same = (prior.version == scheme.version
                 and prior.forms == scheme.forms
-                and prior.variants == scheme.variants
+                # A closed variant SET (contract §3.4): order carries no meaning there,
+                # unlike forms, whose first is the default.
+                and set(prior.variants) == set(scheme.variants)
                 and prior.variant_pattern == scheme.variant_pattern
                 and prior.dtypes == scheme.dtypes)
         if not same:

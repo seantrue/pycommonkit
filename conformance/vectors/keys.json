@@ -601,6 +601,40 @@
    "domain": "cvreg3"
   },
   {
+   "id": "variants_reordered",
+   "first": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o0",
+     "o1"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "second": {
+    "version": "v1",
+    "forms": [
+     "pil",
+     "f32chw"
+    ],
+    "variants": [
+     "o1",
+     "o0"
+    ],
+    "dtypes": {
+     "pil": "|u1"
+    }
+   },
+   "expect": "idempotent",
+   "note": "a closed variant set: order carries no meaning (forms differ: the first is the default)",
+   "domain": "cvreg4"
+  },
+  {
    "id": "other_dtypes",
    "first": {
     "version": "v1",
@@ -629,7 +663,7 @@
     "dtypes": {}
    },
    "expect": "error",
-   "domain": "cvreg4"
+   "domain": "cvreg5"
   },
   {
    "id": "same_pattern",
@@ -648,7 +682,7 @@
     "variant_pattern": "sr[0-9]+"
    },
    "expect": "idempotent",
-   "domain": "cvreg5"
+   "domain": "cvreg6"
   },
   {
    "id": "other_pattern",
@@ -668,7 +702,7 @@
    },
    "expect": "error",
    "note": "two pattern schemes are the same only when the pattern TEXT is the same",
-   "domain": "cvreg6"
+   "domain": "cvreg7"
   },
   {
    "id": "pattern_vs_closed",
@@ -690,7 +724,7 @@
     ]
    },
    "expect": "error",
-   "domain": "cvreg7"
+   "domain": "cvreg8"
   }
  ]
 }

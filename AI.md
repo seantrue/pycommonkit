@@ -43,6 +43,16 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Step 5: keys and `.npy` in Rust; Python's registry compares variant sets (Claude Opus 5.5, Claude Code, with one delegated agent)
+
+**What the agent did** (about 2,800 lines of Rust with tests). `keys.rs`: the grammar in full, schemes, the registry (a closed variant set compared as a set, pattern text compared), ASCII-only digest folding on build and none on parse, variant patterns through the `regex` crate (MIT OR Apache-2.0; missing from the plan's dependency list). `npy/`: a header parser for versions 1–3, both byte orders, Fortran order, trailing bytes and every descriptor class, ported in logic from ImpCraft's `impcraft-shm` reader, and a writer of numpy's exact header bytes. Every key vector and all 53 header vectors pass, read from the JSON at test time. The writer builds each header from the vector's array spec, not the fixture, and was checked by breaking it three ways (no growth padding, zero alignment spaces allowed, version 1 for every Latin-1 header): each break failed the vectors. A hand-rolled generator ran about 95,000 hostile cases (every truncation, mutated fixtures, random header texts, write-and-read-back, random keys) with no panic. No `unsafe`.
+
+**Where Rust and Python disagreed, decided by the maintainer ("Yes for all").** The contract says a closed variant *set*; Python compared the tuple, so the same variants in another order conflicted. Python now compares sets (vector `keys.registry.variants_reordered`). The contract says forms are distinct; Python didn't check, and now refuses duplicates (a new test). The Rust writer is stricter than Python on unusual field names (backslash, control or non-letter non-ASCII), which is safe.
+
+**Deferred.** CI checks only stable Rust, not the stated minimum 1.95; the integration tests read `../../conformance` and must be excluded from the crate before publishing.
+
+Checked by the AI: Rust 31 tests (with and without default features), clippy with both feature sets, fmt; Python 550 passed; ruff clean; the generator reproduces the fixtures.
+
 ### 2026-10-28 — Step 4: the Rust workspace and CI (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the maintainer asked for.** "Go" (steps 4 and 5), then "No ci on mac", then "Yes for all".
