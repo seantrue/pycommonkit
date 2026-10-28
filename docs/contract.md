@@ -66,7 +66,7 @@ Everything else (absent root, full disk, missing, reaped or torn segment, bad ke
 
 These rules are the contract's foundation; the sections below make them precise.
 
-- **W1. Write once.** The store is write-once by key. A key names one immutable content. A publisher MUST NOT publish different bytes under a key whose segment already exists. Republishing the same array is a touch, never a write (§6.4). A different array under an existing key is a **key collision**, a major system error that fails loudly (§6.4). A change of content is a new key: a new digest or a new scheme `version`.
+- **W1. Write once.** The store is write-once by key. A key names one immutable content. A publisher MUST NOT publish different bytes under a key whose segment already exists. Republishing the same array is a touch, never a write (§6.4). A different array under an existing key is a **key collision**, a major system error that fails loudly (§6.4). A change of content is a new key: a new digest or a new scheme `version`. The one sanctioned exception is an explicit **removal** (§6.7): after a caller removes a segment, a later publish under the same key may write different bytes.
 - **W2. Temp-then-rename.** Every writer writes the whole segment to a private temporary file in the segment's own directory, then renames it over the final path (§6.5). A segment never exists under its final name in part.
 - **W3. Unlink, never truncate.** Segments are removed only by unlinking. No conforming process truncates a segment, writes into it in place, or opens it for writing (§7).
 - **W4. Short is a miss.** A reader treats a file shorter than its header promises, or whose header does not parse, as a torn miss and counts `shm_torn` (§5.7, §8.1). This is a safety net for faults outside the contract (a crash with fsync off, a non-conforming tool, disk corruption), not part of normal operation.
@@ -336,6 +336,20 @@ Errors:
 
 Count `shm_publish` and add `nbytes` to `shm_bytes_published`, then take a rate-limited reap turn (§9.8). Return "stored". Publishers in every language reap (C9).
 
+### 6.7 Removing a segment
+
+`remove(key)` unlinks the segment for a key, so that a caller can **replace** a value under an unchanged key: a recompute after a fix the key does not capture, for example. Without it a republish is only a touch, or a key collision when the array differs (§6.4). Added 2026-10-28 for existing callers whose "recompute and replace" relied on publish rewriting a segment.
+
+- It needs the `readwrite` mode and an enabled store; otherwise it counts `shm_declined_mode` and returns false.
+- The key MUST be valid for its registered scheme, as for a publisher (§3.5); otherwise it counts `shm_bad_key` and returns false.
+- It acts only on a **regular file** at the segment path (by `lstat`); it never follows or removes a symbolic link, and it removes nothing else.
+- It **only unlinks** (W3, §7). There is no check that the segment is in use, by decision: a reader in any process that holds the segment keeps the old bytes until it lets go, and its next attach misses or finds the new segment.
+- An absent segment returns false and counts nothing. Any other failure (on Windows, a file some reader has open or mapped, §12) counts `shm_remove_failed` and returns false.
+- Success counts `shm_removed` and returns true. It does not rewrite `.usage.json`; the next complete reap does (§9.7).
+- It never raises.
+
+Python and Rust conform since pycommonkit 0.1.0 (`SharedArrayStore.remove`, `Store::remove`), and the cross-language suite removes in one language and replaces in the other.
+
 ## 7. The mutation rule
 
 This rule is what makes mapping safe.
@@ -343,7 +357,7 @@ This rule is what makes mapping safe.
 A segment path is changed only by:
 
 - **rename-over**, when it is published (§6.5);
-- **unlink**, by the reaper (§9.6), or by a writer removing its own temporary file;
+- **unlink**, by the reaper (§9.6), by an explicit removal (§6.7), or by a writer removing its own temporary file;
 - **an mtime update**, by a touch (§8.2).
 
 No conforming process truncates a segment, writes into it in place, or opens it for writing.
@@ -443,6 +457,15 @@ A store keeps the time of its last reap turn, initially zero. A **reap turn** (a
 
 Free bytes are `f_bavail × f_frsize` from `statvfs` on the root, cached for one second per store. If the figure cannot be obtained for any reason, free bytes are 0. (C6(e). Python conforms since pycommonkit 0.1.0 (A10). It used to catch only `OSError`, so a platform without `os.statvfs` raised `AttributeError`. Where `os.statvfs` is missing it now asks `shutil.disk_usage`, whose POSIX branch is the same figure.)
 
+### 9.10 Dry run (an implementation aid, not on-disk behaviour)
+
+Both implementations offer a **dry run** of the reaper, for inspecting a live tree and for the cross-language suite. It is not part of the on-disk contract: no process relies on another performing one, and nothing it does is visible in the tree. Python: `SharedArrayStore.reap(dry_run=True, now=None)`, and `commonkit.store.reap_plan(root, *, max_bytes, min_free_bytes, ttl_s, budget_s, now)`, which needs no store. Rust: `Store::reap_with(&ReapOptions { dry_run: true, now, .. })`, and `commonkit::reap_plan(root, &Options, &ReapOptions)`.
+
+- It applies the refusals of §9.1, then walks, sorts and selects exactly as §9.3 to §9.6, treating every unlink as successful, and reports the candidates it would unlink (in eviction order), the orphaned `.tmp` files it would sweep (§9.5), `low_water` and `need_free`.
+- It MUST change nothing: no lock (it neither takes `.reap.lock` nor is stopped by one), no unlink, no sweep, no `.usage.json`, no touch, and no counter but `shm_reap_refused`. `reap_plan` constructs no store, so it writes no probe file (§6.1) either. Free space is measured by `statvfs`, which writes nothing.
+- `now` (Unix seconds) fixes the clock for expiry and the `.tmp` age. Only a dry run takes it; a real reap always reads the clock.
+- Added in plan step 8 (2026-10-28), when both dry runs were compared on thresher's real tree (§10.1).
+
 ## 10. Policy
 
 ### 10.1 Settings
@@ -517,15 +540,16 @@ Implementations use these names, so a stats table can sum them across languages.
 | Counter | Section |
 |---|---|
 | `shm_hit`, `shm_miss`, `shm_torn` | §8.1 |
-| `shm_bad_key` | §6.2, §8.1 |
+| `shm_bad_key` | §6.2, §6.7, §8.1 |
 | `shm_torn_replaced` (new; Python conforms since pycommonkit 0.1.0, A7) | §6.4 |
 | `shm_key_collision` (new; Python conforms since pycommonkit 0.1.0, A7) | §6.4 |
-| `shm_declined_mode`, `shm_declined_small`, `shm_declined_size`, `shm_declined_space`, `shm_declined_budget`, `shm_declined_dtype` | §6.2, §6.5 |
+| `shm_declined_mode`, `shm_declined_small`, `shm_declined_size`, `shm_declined_space`, `shm_declined_budget`, `shm_declined_dtype` | §6.2, §6.5 (`shm_declined_mode` also §6.7) |
 | `shm_publish`, `shm_bytes_published` | §6.6 |
 | `shm_publish_failed` | §6.5 |
 | `shm_reaped`, `shm_reaped_bytes`, `shm_reap_partial` | §9.7 |
 | `shm_reap_refused` | §9.1 |
 | `shm_reap_failed` | §9.6, §9.8 |
+| `shm_removed`, `shm_remove_failed` (new) | §6.7 |
 
 A store's counters are drained (read and reset together) by `drain_stats`.
 

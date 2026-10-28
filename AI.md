@@ -43,6 +43,18 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Step 8: cross-language conformance; a dry-run reap checked on the real tree; `remove(key)` (Claude Opus 5.5, Claude Code, with one delegated agent)
+
+**What the maintainer asked for.** "Go" for step 8; "What does actionlint do?"; then "Add a way to forcibly remove an existing cache entry (if not in use). This is to support existing users of ../impressionist", choosing no in-use check and pycommonkit only for now; then "CP. One PR".
+
+**Step 8 (the delegated agent).** `rust/ck-conform` (a JSON driver for the crate, unpublished) and `conformance/ck_conform.py` (the same for Python), `tests/test_conformance.py` (pytest calling the Rust driver) and Rust tests calling `uv run python`. Every case in the plan passes in both directions: both languages write all 53 header vectors' files identically (equal to numpy's) and attach each other's; a touch from either side protects a segment from the other's reaper; both reapers reach the same survivors in turn, concurrently and in their dry runs; each breaks the other's stale lock; torn, partial and empty segments and orphan `.tmp` files are handled alike; each trusts the other's `.usage.json`; eight publishers race on one key with no collision; real collisions raise in either language; a mapping survives the other's reaper; `.policy.json` reads alike. The CI `conformance` job runs the suite on Linux. The one disagreement was a test helper writing big-endian datetimes where the fixtures hold little-endian (test-only).
+
+**A dry-run reap** in both languages (contract §9.10, an implementation aid): it takes no lock, writes, touches and unlinks nothing, and returns what it would remove; tested by comparing every entry's lstat before and after. Against thresher's real store (`/Volumes/CommonkitStore/store`) the two dry runs, with a fixed `now`, chose the same 136 of 1,725 segments in the same order (282 MB, the least recently used, to bring 6.29 GB under the 6.01 GB low water mark). A `stat` listing of all 2,392 entries before and after is byte-identical; the AI checked both, and that no lock was left. `actionlint` was not run: it isn't installed and the agent's download was blocked.
+
+**`remove(key)` (the AI).** Impressionist's checkpoint `reset=True` relied on publish rewriting a segment; under C15 a republish is a touch or a `KeyCollision`, so reset silently stopped replacing values. `SharedArrayStore.remove` and `Store::remove` unlink a segment (regular files only, never a symlink, never truncating; no in-use check, so readers keep their bytes), count `shm_removed` / `shm_remove_failed`, and never raise. Contract §6.7, W1's one exception, the mutation rule and the counter table; a README paragraph. Six Python tests, five Rust tests and a cross-language case (removed in one language, replaced in the other). Impressionist itself is not changed yet. A Rust unit test still asserted 20 counters and failed until updated.
+
+Checked by the AI: Python 629 passed, ruff clean; Rust 153 passed with and without `mmap`, clippy clean on macOS and for `x86_64-pc-windows-msvc`, fmt; the real-tree listings identical.
+
 ### 2026-10-28 — Step 7: the Rust reaper; a reaper race and a symlink truncation fixed in both languages (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the maintainer asked for.** "Go" for step 7, "What is .usage.json.tmp", then "Go for fix".

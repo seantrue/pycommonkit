@@ -567,3 +567,66 @@ def test_usage_survives_a_hostile_file(store):
     with open(os.path.join(store.root, ".usage.json"), "w") as fh:
         fh.write("[" * 100_000)                         # RecursionError, not ValueError
     assert store.usage() == (-1, -1)
+
+
+# --------------------------------------------------------------------------- remove
+
+
+def test_remove_lets_a_different_array_be_published(store):
+    """Contract §6.7: a caller replacing a value under an unchanged key (a recompute
+    after a fix the key doesn't capture) removes it, then publishes again."""
+    k = key()
+    assert store.publish(k, _wave())
+    with pytest.raises(KeyCollision):
+        store.publish(k, _wave()[:-1])
+    assert store.remove(k) is True
+    assert store.attach(k) is None
+    assert store.publish(k, _wave()[:-1])
+    assert store.attach(k).shape == _wave()[:-1].shape
+    assert store.drain_stats()["shm_removed"] == 1
+
+
+def test_remove_of_an_absent_key_is_false_and_counts_nothing(store):
+    assert store.remove(key()) is False
+    assert not {k: v for k, v in store.drain_stats().items() if v}
+
+
+def test_remove_needs_readwrite_and_a_valid_key(store, tmp_path):
+    reader = SharedArrayStore(store.root, mode="read")
+    store.publish(key(), _wave())
+    assert reader.remove(key()) is False
+    assert reader.drain_stats()["shm_declined_mode"] == 1
+    assert store.remove("nosuchdomain:v1:x:" + "ab" * 16 + ":x") is False
+    assert store.drain_stats()["shm_bad_key"] == 1
+    assert store.attach(key()) is not None
+
+
+def test_remove_leaves_a_mapped_reader_its_bytes(store):
+    """It only unlinks (§7): a reader holding the mapping keeps the old bytes."""
+    k = key()
+    store.publish(k, _wave())
+    held = store.attach(k)
+    expected = np.array(held)
+    assert store.remove(k)
+    assert np.array_equal(held, expected)
+
+
+def test_remove_never_unlinks_a_symlink(store, tmp_path):
+    victim = tmp_path / "victim.npy"
+    victim.write_bytes(b"x")
+    path = store.path_for(key())
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.symlink(victim, path)
+    assert store.remove(key()) is False
+    assert os.path.islink(path) and victim.exists()
+
+
+def test_a_failed_remove_is_counted(store, monkeypatch):
+    k = key()
+    store.publish(k, _wave())
+
+    def refuse(path, *a, **kw):
+        raise PermissionError(path)               # as Windows refuses an open file
+    monkeypatch.setattr(os, "unlink", refuse)
+    assert store.remove(k) is False
+    assert store.drain_stats()["shm_remove_failed"] == 1

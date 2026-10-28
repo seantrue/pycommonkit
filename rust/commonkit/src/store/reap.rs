@@ -28,7 +28,7 @@ use std::io::{self, Write};
 use std::path::{MAIN_SEPARATOR, Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use super::{Counter, Store, mtime_s, now_s};
+use super::{Counter, Options, Store, absolute, mtime_s, now_s};
 use std::sync::PoisonError;
 
 /// The reaper's lock in the root (§9.2).
@@ -45,9 +45,33 @@ pub const STALE_LOCK_S: f64 = 300.0;
 /// writing.
 pub const TMP_ORPHAN_S: f64 = 3600.0;
 
+/// How to reap: the walk's time budget, and whether to change anything.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ReapOptions {
+    /// Bounds the walk, checked before each directory (§9.3); never the eviction.
+    pub budget: Duration,
+    /// Change nothing (an implementation aid, contract §9.10): no lock, no unlink, no `.tmp`
+    /// sweep, no `.usage.json`, no counters but a refusal. The report then lists what a reap
+    /// would unlink (`unlink`) and sweep (`sweep`), treating every unlink as successful.
+    pub dry_run: bool,
+    /// A fixed clock (Unix seconds) for expiry and the `.tmp` age. Honoured by a dry run only;
+    /// a real reap always reads the clock.
+    pub now: Option<f64>,
+}
+
+impl Default for ReapOptions {
+    fn default() -> ReapOptions {
+        ReapOptions {
+            budget: super::DEFAULT_REAP_BUDGET,
+            dry_run: false,
+            now: None,
+        }
+    }
+}
+
 /// What one reap did (contract §9.7). A reap that did not run (a disabled store, a refused root,
 /// a lock another reaper holds) reports zeros and `complete: false`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[non_exhaustive]
 pub struct ReapReport {
     /// Candidates the walk found (segments, not swept temporary files).
@@ -61,6 +85,36 @@ pub struct ReapReport {
     /// Candidates already gone when this reaper came to unlink them (another reaper got
     /// there first, C8). They count toward the targets but are not this reaper's evictions.
     pub gone: u64,
+    /// This was a dry run ([`ReapOptions::dry_run`]): nothing was changed, and `reaped` and
+    /// `bytes` are what a reap would have unlinked.
+    pub dry_run: bool,
+    /// Dry run only: the candidates a reap would unlink, in eviction order.
+    pub unlink: Vec<PathBuf>,
+    /// Dry run only: the orphaned `.tmp` files a reap would sweep, in walk order.
+    pub sweep: Vec<PathBuf>,
+    /// `floor(0.8 × max_bytes)`, once the walk has run (§9.6).
+    pub low_water: i64,
+    /// `max(0, floor(1.25 × min_free_bytes) − free)`, once the walk has run (§9.6).
+    pub need_free: u64,
+}
+
+/// What a reap of `root` with `options`' policy would do, changing nothing (contract §9.10, an
+/// implementation aid): [`Store::reap_with`] with `dry_run` forced on, but without constructing
+/// a store, so not even the store's probe file is written. This is how a live tree is
+/// inspected. A refused root (§9.1) gives an empty report.
+pub fn reap_plan(root: impl AsRef<Path>, options: &Options, reap: &ReapOptions) -> ReapReport {
+    let root = root.as_ref();
+    if root.as_os_str().is_empty() {
+        return ReapReport::default();
+    }
+    let Some(root) = absolute(root) else {
+        return ReapReport::default();
+    };
+    let store = Store::unprobed(root, options.clone());
+    store.reap_with(&ReapOptions {
+        dry_run: true,
+        ..*reap
+    })
 }
 
 /// What unlinking one candidate came to.
@@ -170,6 +224,15 @@ impl Store {
     /// than [`STALE_LOCK_S`] is broken, and this call still returns without reaping). A failed
     /// unlink other than "already gone" is skipped and counted `shm_reap_failed`.
     pub fn reap(&self, budget: Duration) -> ReapReport {
+        self.reap_with(&ReapOptions {
+            budget,
+            ..ReapOptions::default()
+        })
+    }
+
+    /// [`Store::reap`] with options; with `dry_run` it changes nothing and reports what it
+    /// would unlink and sweep (contract §9.10). A refusal still counts `shm_reap_refused`.
+    pub fn reap_with(&self, options: &ReapOptions) -> ReapReport {
         let mut out = ReapReport::default();
         if self.disabled {
             return out;
@@ -178,21 +241,33 @@ impl Store {
             self.count(Counter::ReapRefused, 1);
             return out;
         }
-        let _guard = match self.lock() {
-            Lock::Held(guard) => guard,
-            Lock::NotHeld => return out,
-            Lock::Failed => {
-                self.count(Counter::ReapFailed, 1);
-                return out;
+        let dry = options.dry_run;
+        // A dry run takes no lock: it writes nothing, so it can't race anything.
+        let _guard = if dry {
+            None
+        } else {
+            match self.lock() {
+                Lock::Held(guard) => Some(guard),
+                Lock::NotHeld => return out,
+                Lock::Failed => {
+                    self.count(Counter::ReapFailed, 1);
+                    return out;
+                }
             }
         };
 
         // A deadline past `Instant`'s range is no deadline.
-        let deadline = Instant::now().checked_add(budget);
-        let now = now_s();
+        let deadline = Instant::now().checked_add(options.budget);
+        let now = match options.now {
+            Some(now) if dry => now,
+            _ => now_s(),
+        };
         let mut entries = Vec::new();
-        let complete = self.walk(now, deadline, &mut entries);
+        let mut sweep = dry.then(Vec::new);
+        let complete = self.walk(now, deadline, &mut entries, &mut sweep);
         out.scanned = entries.len() as u64;
+        out.dry_run = dry;
+        out.sweep = sweep.unwrap_or_default();
 
         let mut total: i128 = entries.iter().map(|c| i128::from(c.size)).sum();
         entries.sort_by(|a, b| {
@@ -211,6 +286,8 @@ impl Store {
         let low_water = (0.8 * self.options.max_bytes as f64) as i128;
         let floor = (1.25 * self.options.min_free_bytes as f64) as i128;
         let need_free = (floor - i128::from(self.free_bytes(true))).max(0);
+        out.low_water = i64::try_from(low_water).unwrap_or(i64::MAX);
+        out.need_free = u64::try_from(need_free).unwrap_or(u64::MAX);
         let mut freed: i128 = 0;
         for c in &entries {
             let expired = now - c.mtime > self.options.ttl_s;
@@ -219,8 +296,15 @@ impl Store {
             if !(expired || over || short) {
                 break;
             }
-            // Unlinking is cheap, so eviction is not under the time budget.
-            match self.reap_unlink(&c.path) {
+            // Unlinking is cheap, so eviction is not under the time budget. A dry run counts
+            // every unlink as a success.
+            let unlinked = if dry {
+                out.unlink.push(c.path.clone());
+                Unlink::Removed
+            } else {
+                self.reap_unlink(&c.path)
+            };
+            match unlinked {
                 Unlink::Failed => continue,
                 // Already gone: another reaper took it (C8). It has left the tree all the
                 // same, so it counts toward both targets (contract §9.6); not counting it
@@ -238,6 +322,10 @@ impl Store {
             freed += i128::from(c.size);
         }
         out.complete = complete;
+        if dry {
+            // Nothing written and nothing counted: the tree and the store are as they were.
+            return out;
+        }
 
         if complete {
             let bytes = u64::try_from(total.max(0)).unwrap_or(u64::MAX);
@@ -301,7 +389,14 @@ impl Store {
     /// orphaned temporary files. True when every directory was visited before the deadline.
     /// Nothing else is descended into: candidates are by path shape only (C6(a)), so a walk
     /// pruned to that shape loses none.
-    fn walk(&self, now: f64, deadline: Option<Instant>, out: &mut Vec<Candidate>) -> bool {
+    /// `sweep` is `Some` for a dry run: orphaned `.tmp` files are listed there, not unlinked.
+    fn walk(
+        &self,
+        now: f64,
+        deadline: Option<Instant>,
+        out: &mut Vec<Candidate>,
+        sweep: &mut Option<Vec<PathBuf>>,
+    ) -> bool {
         if self.past(&self.root, deadline) {
             return false;
         }
@@ -313,14 +408,21 @@ impl Store {
                 if self.past(&shard_dir, deadline) {
                     return false;
                 }
-                self.scan(&shard_dir, &shard, now, out);
+                self.scan(&shard_dir, &shard, now, out, sweep);
             }
         }
         true
     }
 
     /// One segment directory: its candidates (§9.4) and its orphaned `.tmp` files (§9.5).
-    fn scan(&self, dir: &Path, shard: &str, now: f64, out: &mut Vec<Candidate>) {
+    fn scan(
+        &self,
+        dir: &Path,
+        shard: &str,
+        now: f64,
+        out: &mut Vec<Candidate>,
+        sweep: &mut Option<Vec<PathBuf>>,
+    ) {
         let Ok(entries) = fs::read_dir(dir) else {
             return;
         };
@@ -347,7 +449,12 @@ impl Store {
                 // An orphan of a crashed writer (C6(b)). Not a segment: not scanned, not usage,
                 // not shm_reaped.
                 if now - mtime > TMP_ORPHAN_S {
-                    let _ = self.reap_unlink(&path);
+                    match sweep {
+                        Some(list) => list.push(path),
+                        None => {
+                            let _ = self.reap_unlink(&path);
+                        }
+                    }
                 }
                 continue;
             }

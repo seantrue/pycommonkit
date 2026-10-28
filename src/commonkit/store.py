@@ -596,18 +596,7 @@ class SharedArrayStore:
     def _free_bytes(self, fresh: bool = False) -> int:
         now = time.time()
         if fresh or now - self._statvfs_at > _STATVFS_TTL_S:
-            # Any failure is 0 free, not an exception (contract §9.9): catching only
-            # OSError let AttributeError out on a platform without os.statvfs.
-            # Windows has none, so it asks shutil, whose POSIX branch is this same
-            # f_bavail * f_frsize; how Windows measures is not yet contract (§12).
-            try:
-                if hasattr(os, "statvfs"):
-                    st = os.statvfs(self.root)
-                    self._statvfs_free = int(st.f_bavail * st.f_frsize)
-                else:                                          # pragma: no cover
-                    self._statvfs_free = int(shutil.disk_usage(self.root).free)
-            except Exception:                                  # noqa: BLE001
-                self._statvfs_free = 0
+            self._statvfs_free = _measure_free(self.root)   # 0 on any failure (§9.9)
             self._statvfs_at = now
         return self._statvfs_free
 
@@ -640,6 +629,40 @@ class SharedArrayStore:
         self.publish(key, arr)
 
     # ---------------------------------------------------------------- upkeep
+
+    def remove(self, key: str) -> bool:
+        """Unlink the segment for ``key``. Returns whether a segment was removed.
+
+        The one sanctioned exception to write-once (contract §6.7): a caller that
+        has to REPLACE a value under an unchanged key -- recomputing after a fix the
+        key doesn't capture, say -- removes it and publishes again. Without this a
+        republish is only a touch, or a ``KeyCollision`` when the array differs.
+
+        No in-use check, by decision (2026-10-28). It only ever unlinks (§7), so a
+        reader in any process that holds the segment keeps the old bytes until it
+        lets go; the next attach misses or finds the new segment. On Windows an
+        open or mapped file can't be unlinked: that is a failed removal, not an
+        error. Never raises; a key this store can't address counts ``shm_bad_key``.
+        """
+        if self.disabled or self.mode != "readwrite":
+            self.stats["shm_declined_mode"] += 1
+            return False
+        try:
+            path = self.path_for(key)
+        except ValueError:
+            self.stats["shm_bad_key"] += 1
+            return False
+        try:
+            if not stat.S_ISREG(os.lstat(path).st_mode):
+                return False                # not a segment: never unlink what isn't ours
+            os.unlink(path)
+        except FileNotFoundError:
+            return False                    # nothing to remove is not a failure
+        except OSError:
+            self.stats["shm_remove_failed"] += 1
+            return False
+        self.stats["shm_removed"] += 1
+        return True
 
     def usage(self) -> tuple[int, int]:
         """``(bytes, files)`` for the tree, from the reaper's cached walk.
@@ -677,7 +700,7 @@ class SharedArrayStore:
         except Exception:                                      # noqa: BLE001
             self.stats["shm_reap_failed"] += 1
 
-    def reap(self, *, budget_s=0.25) -> dict:
+    def reap(self, *, budget_s=0.25, dry_run=False, now=None) -> dict:
         """Unlink expired segments, then the least recently used (oldest mtime; attach
         refreshes it) until the store is under its low water mark and the volume above
         its free-space floor. Lock-guarded; ``budget_s`` bounds the walk.
@@ -690,13 +713,22 @@ class SharedArrayStore:
         regular files whose PATH matches the segment shape (and orphaned ``.tmp``
         files over an hour old beside them), never follows symlinks, and refuses
         to run at all if the root looks wrong.
+
+        ``dry_run=True`` changes nothing: see :func:`reap_plan`, which it calls with this
+        store's settings (and ``now``, which only a dry run takes). Refusals still count.
         """
         out = {"scanned": 0, "reaped": 0, "bytes": 0}
         if self.disabled:
             return out
-        if not self.root or self.root == "/" or self.root.count(os.sep) < 2:
+        if _suspicious_root(self.root):
             self.stats["shm_reap_refused"] += 1
             return out
+        if dry_run:
+            return _reap_tree(self.root, max_bytes=self.max_bytes,
+                              min_free_bytes=self.min_free_bytes, ttl_s=self.ttl_s,
+                              budget_s=budget_s, now=now,
+                              free_bytes=lambda: self._free_bytes(fresh=True),
+                              dry_run=True, on_failed=None)[0]
 
         lock = os.path.join(self.root, ".reap.lock")
         try:
@@ -714,97 +746,18 @@ class SharedArrayStore:
         try:
             os.write(fd, str(os.getpid()).encode())
             os.close(fd)
-            deadline = time.time() + float(budget_s)
-            now = time.time()
-            entries = []
-            complete = True
-            for dirpath, dirnames, filenames in os.walk(self.root):
-                # checked BEFORE each directory: "partial" means one went unscanned
-                if time.time() > deadline:
-                    complete = False
-                    break
-                # Candidates by PATH SHAPE only (C6(a)): {form}/{xx}/{xx...}.{variant}.npy.
-                # Any ``.npy`` anywhere under the root used to qualify, so a reserved
-                # ``.pinned/`` tree or a stray ``notes.npy`` was reaped like a segment.
-                # Pruning the walk to that shape also means it never descends further.
-                rel = os.path.relpath(dirpath, self.root)
-                parts = [] if rel == os.curdir else rel.split(os.sep)
-                if len(parts) == 0:
-                    dirnames[:] = [d for d in dirnames if _keys._TOKEN_RE.fullmatch(d)]
-                    continue
-                if len(parts) == 1:
-                    dirnames[:] = [d for d in dirnames if _SHARD_RE.fullmatch(d)]
-                    continue
-                dirnames[:] = []
-                shard = parts[1]
-                for name in filenames:
-                    is_tmp = name.endswith(".tmp")
-                    m = None if is_tmp else _SEGMENT_NAME_RE.fullmatch(name)
-                    if not (is_tmp or (m and m.group(1) == shard)):
-                        continue
-                    p = os.path.join(dirpath, name)
-                    try:
-                        st = os.lstat(p)            # lstat: never follow a symlink
-                    except OSError:
-                        continue
-                    if not stat.S_ISREG(st.st_mode):
-                        continue
-                    if is_tmp:
-                        # An orphan of a crashed writer (C6(b)). Not a segment: not
-                        # scanned, not usage, not shm_reaped.
-                        if now - st.st_mtime > TMP_ORPHAN_S:
-                            try:
-                                os.unlink(p)
-                            except OSError:
-                                pass
-                        continue
-                    out["scanned"] += 1
-                    entries.append((st.st_mtime, st.st_size, p))
 
-            total = sum(e[1] for e in entries)
-            entries.sort()                          # oldest mtime first: LRU
+            def failed():
+                self.stats["shm_reap_failed"] += 1
 
-            # Two targets, least recently used first. The byte budget's low water mark
-            # (judged only on a complete walk: a partial one under-counts), and the
-            # free-space floor with 25% headroom. The floor used to be a publish gate
-            # only, so a volume that filled before the budget did -- a quota smaller than
-            # max_bytes + min_free_bytes -- declined everything and evicted nothing.
-            low_water = int(0.8 * self.max_bytes)
-            need_free = max(0, int(1.25 * self.min_free_bytes) - self._free_bytes(fresh=True))
-            freed = 0
-            gone = 0
-            for mtime, size, p in entries:
-                expired = (now - mtime) > self.ttl_s
-                over = complete and total > low_water
-                short = freed < need_free
-                if not (expired or over or short):
-                    break
-                # Unlinking is cheap and bounded by the walk, so eviction always reaches
-                # its target: the time budget limits the walk, not the eviction. A budget
-                # that cut eviction short left a store 1.2 GB over its low water mark.
-                try:
-                    os.unlink(p)
-                except FileNotFoundError:
-                    # Another reaper took it (C8). It has left the tree all the same, so it
-                    # counts toward both targets (contract §9.6): not counting it let two
-                    # racing reapers take six segments to none against a low water mark of
-                    # two. It isn't this reaper's eviction, so no counter and no bytes.
-                    gone += 1
-                    total -= size
-                    freed += size
-                    continue
-                except OSError:
-                    # Skipped and counted, then on to the next candidate (§9.6). On Windows
-                    # this is a segment some reader has open or mapped (§12).
-                    self.stats["shm_reap_failed"] += 1
-                    continue
-                total -= size
-                freed += size
-                out["reaped"] += 1
-                out["bytes"] += size
-            out["complete"] = complete
+            out, total, gone = _reap_tree(
+                self.root, max_bytes=self.max_bytes, min_free_bytes=self.min_free_bytes,
+                ttl_s=self.ttl_s, budget_s=budget_s, now=None,
+                free_bytes=lambda: self._free_bytes(fresh=True), dry_run=False,
+                on_failed=failed)
+            now = out.pop("now")
 
-            if complete:                            # a partial walk would under-count
+            if out["complete"]:                     # a partial walk would under-count
                 try:
                     import json
                     tmp = os.path.join(self.root, ".usage.json.tmp")
@@ -848,3 +801,163 @@ class SharedArrayStore:
     def __repr__(self) -> str:
         state = "disabled" if self.disabled else f"{self.mode}/{self.attach_mode}"
         return f"<SharedArrayStore {self.root!r} {state}>"
+
+
+def _suspicious_root(root: str) -> bool:
+    """The reaper's refusal (contract §9.1): empty, ``/``, or fewer than two separators."""
+    return not root or root == "/" or root.count(os.sep) < 2
+
+
+def _measure_free(root: str) -> int:
+    """Free bytes on ``root``'s volume, 0 on any failure (contract §9.9)."""
+    # Any failure is 0 free, not an exception: catching only OSError let AttributeError
+    # out on a platform without os.statvfs. Windows has none, so it asks shutil, whose
+    # POSIX branch is this same f_bavail * f_frsize; how Windows measures is not yet
+    # contract (§12).
+    try:
+        if hasattr(os, "statvfs"):
+            st = os.statvfs(root)
+            return int(st.f_bavail * st.f_frsize)
+        return int(shutil.disk_usage(root).free)               # pragma: no cover
+    except Exception:                                          # noqa: BLE001
+        return 0
+
+
+def reap_plan(root, *, max_bytes, min_free_bytes, ttl_s, budget_s=0.25, now=None) -> dict:
+    """What a reap of ``root`` with these settings would unlink, changing nothing.
+
+    An implementation aid, not on-disk behaviour (contract §9.10): it walks, sorts and
+    selects exactly as :meth:`SharedArrayStore.reap` does, treating every unlink as
+    successful, but takes no lock, unlinks nothing, sweeps nothing, writes no
+    ``.usage.json`` and touches nothing. It needs no store, so it never writes the
+    store's probe file either: it is how a live tree is inspected (step 8 compared
+    thresher's real tree this way). ``now`` (Unix seconds) fixes the clock for expiry and
+    the ``.tmp`` age; free space is measured as the reaper does.
+
+    Returns the reap report plus ``dry_run: True``, ``unlink`` (the candidates' paths in
+    eviction order), ``sweep`` (orphaned ``.tmp`` paths), ``low_water`` and ``need_free``.
+    A refused root returns an empty report with ``refused: True``.
+    """
+    root = os.path.abspath(str(root)) if root else ""
+    if _suspicious_root(root):
+        return {"scanned": 0, "reaped": 0, "bytes": 0, "complete": False, "dry_run": True,
+                "unlink": [], "sweep": [], "refused": True}
+    return _reap_tree(root, max_bytes=int(max_bytes), min_free_bytes=int(min_free_bytes),
+                      ttl_s=float(ttl_s), budget_s=budget_s, now=now,
+                      free_bytes=lambda: _measure_free(root), dry_run=True,
+                      on_failed=None)[0]
+
+
+def _reap_tree(root, *, max_bytes, min_free_bytes, ttl_s, budget_s, now, free_bytes,
+               dry_run, on_failed):
+    """The reaper's walk, order and eviction (contract §9.3 to §9.6), under a lock the
+    caller holds -- or, with ``dry_run``, under none, unlinking nothing.
+
+    Returns ``(report, total, gone)``. A real reap's report carries ``now`` for the caller
+    to write into ``.usage.json``; a dry run's carries the plan instead.
+    """
+    deadline = time.time() + float(budget_s)
+    if now is None or not dry_run:          # only a dry run takes a fixed clock
+        now = time.time()
+    out = {"scanned": 0, "reaped": 0, "bytes": 0}
+    entries = []
+    swept = []
+    complete = True
+    for dirpath, dirnames, filenames in os.walk(root):
+        # checked BEFORE each directory: "partial" means one went unscanned
+        if time.time() > deadline:
+            complete = False
+            break
+        # Candidates by PATH SHAPE only (C6(a)): {form}/{xx}/{xx...}.{variant}.npy.
+        # Any ``.npy`` anywhere under the root used to qualify, so a reserved
+        # ``.pinned/`` tree or a stray ``notes.npy`` was reaped like a segment.
+        # Pruning the walk to that shape also means it never descends further.
+        rel = os.path.relpath(dirpath, root)
+        parts = [] if rel == os.curdir else rel.split(os.sep)
+        if len(parts) == 0:
+            dirnames[:] = [d for d in dirnames if _keys._TOKEN_RE.fullmatch(d)]
+            continue
+        if len(parts) == 1:
+            dirnames[:] = [d for d in dirnames if _SHARD_RE.fullmatch(d)]
+            continue
+        dirnames[:] = []
+        shard = parts[1]
+        for name in filenames:
+            is_tmp = name.endswith(".tmp")
+            m = None if is_tmp else _SEGMENT_NAME_RE.fullmatch(name)
+            if not (is_tmp or (m and m.group(1) == shard)):
+                continue
+            p = os.path.join(dirpath, name)
+            try:
+                st = os.lstat(p)            # lstat: never follow a symlink
+            except OSError:
+                continue
+            if not stat.S_ISREG(st.st_mode):
+                continue
+            if is_tmp:
+                # An orphan of a crashed writer (C6(b)). Not a segment: not
+                # scanned, not usage, not shm_reaped.
+                if now - st.st_mtime > TMP_ORPHAN_S:
+                    if dry_run:
+                        swept.append(p)
+                        continue
+                    try:
+                        os.unlink(p)
+                    except OSError:
+                        pass
+                continue
+            out["scanned"] += 1
+            entries.append((st.st_mtime, st.st_size, p))
+
+    total = sum(e[1] for e in entries)
+    entries.sort()                          # oldest mtime first: LRU
+
+    # Two targets, least recently used first. The byte budget's low water mark
+    # (judged only on a complete walk: a partial one under-counts), and the
+    # free-space floor with 25% headroom. The floor used to be a publish gate
+    # only, so a volume that filled before the budget did -- a quota smaller than
+    # max_bytes + min_free_bytes -- declined everything and evicted nothing.
+    low_water = int(0.8 * max_bytes)
+    need_free = max(0, int(1.25 * min_free_bytes) - free_bytes())
+    freed = 0
+    gone = 0
+    planned = []
+    for mtime, size, p in entries:
+        expired = (now - mtime) > ttl_s
+        over = complete and total > low_water
+        short = freed < need_free
+        if not (expired or over or short):
+            break
+        # Unlinking is cheap and bounded by the walk, so eviction always reaches
+        # its target: the time budget limits the walk, not the eviction. A budget
+        # that cut eviction short left a store 1.2 GB over its low water mark.
+        if dry_run:
+            planned.append(p)               # as if the unlink succeeded
+        else:
+            try:
+                os.unlink(p)
+            except FileNotFoundError:
+                # Another reaper took it (C8). It has left the tree all the same, so it
+                # counts toward both targets (contract §9.6): not counting it let two
+                # racing reapers take six segments to none against a low water mark of
+                # two. It isn't this reaper's eviction, so no counter and no bytes.
+                gone += 1
+                total -= size
+                freed += size
+                continue
+            except OSError:
+                # Skipped and counted, then on to the next candidate (§9.6). On Windows
+                # this is a segment some reader has open or mapped (§12).
+                on_failed()
+                continue
+        total -= size
+        freed += size
+        out["reaped"] += 1
+        out["bytes"] += size
+    out["complete"] = complete
+    if dry_run:
+        out.update(dry_run=True, unlink=planned, sweep=swept, low_water=low_water,
+                   need_free=need_free, now=now)
+    else:
+        out["now"] = now
+    return out, total, gone
