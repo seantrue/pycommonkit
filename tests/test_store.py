@@ -484,11 +484,35 @@ def test_free_space_is_zero_without_statvfs(store, monkeypatch):
 
 
 @pytest.mark.parametrize("used", ["995", 995.0, -1, True, None])
-def test_usage_bytes_must_be_a_non_negative_json_integer(store, used):
-    """``int()`` took a float or a numeric string, which no other reader trusts (A11)."""
-    with open(os.path.join(store.root, ".usage.json"), "w") as fh:
-        json.dump({"bytes": used, "files": 3}, fh)
-    assert store.usage() == (-1, -1)
+def test_usage_bytes_must_be_a_non_negative_json_integer(tmp_path, used):
+    """``int()`` took a float or a numeric string, which no other reader trusts (A11).
+
+    Needs a store whose ``.usage.json`` can be FRESH: the shared fixture's
+    ``reap_interval_s=0`` makes every file stale, so this test passed whatever the file
+    held until 2026-10-28 (found by the Rust port). The control, an integer, proves
+    the file is read at all.
+    """
+    store = SharedArrayStore(str(tmp_path / "seg"), mode="readwrite", reap_interval_s=30)
+
+    def usage_with(value):
+        with open(os.path.join(store.root, ".usage.json"), "w") as fh:
+            json.dump({"bytes": value, "files": 3}, fh)
+        return store.usage()
+
+    assert usage_with(995) == (995, 3)
+    assert usage_with(used) == (-1, -1)
+
+
+def test_an_empty_root_is_disabled(tmp_path, monkeypatch):
+    """Contract §6.1: an empty root disables the store. ``os.path.abspath("")`` is the
+    working directory, so ``SharedArrayStore("")`` used to publish into it (found by
+    the Rust port, 2026-10-28)."""
+    monkeypatch.chdir(tmp_path)
+    for root in ("", None):
+        s = SharedArrayStore(root, mode="readwrite", min_array_bytes=1)
+        assert s.disabled
+        assert s.publish(key(), _wave()) is False
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_usage_survives_a_hostile_file(store):

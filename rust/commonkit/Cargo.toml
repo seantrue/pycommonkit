@@ -16,18 +16,38 @@ categories = ["caching", "filesystem"]
 [features]
 default = ["mmap"]
 # Read-only mapping of segments (memmap2), the crate's only `unsafe`, in `src/map.rs` (plan 7.2).
-# Without it no `unsafe` is compiled and attach copies instead. Empty until step 6.
-mmap = []
+# Without it no `unsafe` is compiled and attach copies instead (C5: on by default, and PlumCraft
+# keeps it on).
+mmap = ["dep:memmap2"]
 
 [dependencies]
 # Variant patterns (contract §3.2). Its syntax has no backreferences or look-around, which is
 # the subset the contract allows.
 regex = "1.11"
+# Read-only mapping of segments, in src/map.rs only (plan 7.2). MIT OR Apache-2.0.
+memmap2 = { version = "0.9", optional = true }
+# Zero-copy typed views (`Segment::as_slice`) without `unsafe` of our own: it checks size and
+# alignment and refuses rather than casting. Zlib OR Apache-2.0 OR MIT.
+bytemuck = "1.14"
+# The key-collision report (contract §6.4: "log at error level"). MIT OR Apache-2.0.
+log = "0.4"
+
+[target.'cfg(unix)'.dependencies]
+# Safe syscalls with no `unsafe` here: statvfs for free space (contract §9.9), F_FULLFSYNC on
+# macOS (§6.5), and utimensat(UTIME_NOW) for the touch (§8.2), as Python's os.utime(path, None).
+# Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT.
+rustix = { version = "1", features = ["fs"] }
+
+[target.'cfg(windows)'.dependencies]
+# Free space on Windows, which has no statvfs (contract §12): GetDiskFreeSpaceExW behind a safe
+# call, as Python's shutil.disk_usage. MIT OR Apache-2.0.
+fs4 = { version = "1", default-features = false, features = ["sync"] }
 
 [dev-dependencies]
 # Tests read conformance/vectors/*.json and check fixture digests.
 serde_json = "1"
 sha2 = "0.10"
+tempfile = "3"
 
 [lints]
 workspace = true

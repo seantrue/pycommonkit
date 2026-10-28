@@ -297,7 +297,11 @@ class SharedArrayStore:
                  ttl_s=900, min_array_bytes=256 * 1024,
                  max_array_bytes=128 * 2**20, reap_interval_s=30,
                  fsync=False, verify_republish=False):
-        self.root = os.path.abspath(str(root or ""))
+        # An empty root stays empty, so the check below disables the store (contract §6.1):
+        # ``os.path.abspath("")`` is the working directory, which an empty root used to
+        # become, publishing segments into wherever the process happened to start.
+        root = str(root or "")
+        self.root = os.path.abspath(root) if root else ""
         self.mode = str(mode or "off")
         self.attach_mode = str(attach or "mmap")
         self.max_bytes = int(max_bytes)
