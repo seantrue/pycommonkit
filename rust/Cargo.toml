@@ -1,0 +1,20 @@
+[workspace]
+resolver = "3"
+members = ["commonkit"]
+
+[workspace.package]
+edition = "2024"
+# As ImpCraft and PlumCraft (plan section 5). Edition 2024 itself needs 1.85.
+rust-version = "1.95"
+license = "MIT"
+authors = ["Sean D. True <sean.true@gmail.com>"]
+repository = "https://github.com/seantrue/pycommonkit"
+
+[workspace.lints.rust]
+# `deny`, not `forbid`: the one future module that maps segments (`src/map.rs`, behind the
+# default-on `mmap` feature, plan 7.2) carries `#[allow(unsafe_code)]`, which `forbid` would refuse.
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "deny"
+dbg_macro = "warn"

@@ -1,0 +1,23 @@
+[package]
+name = "commonkit"
+version = "0.1.0"
+description = "Named shared-memory segments for numpy .npy arrays: publish once, map from any process (the Rust side of pycommonkit)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+keywords = ["numpy", "npy", "mmap", "shared-memory", "cache"]
+categories = ["caching", "filesystem"]
+# `LICENSE` beside this file is a copy of the repository's (cargo can't package a file outside
+# the crate without `license-file`, which conflicts with `license`); tests/license.rs keeps the
+# two identical.
+
+[features]
+default = ["mmap"]
+# Read-only mapping of segments (memmap2), the crate's only `unsafe`, in `src/map.rs` (plan 7.2).
+# Without it no `unsafe` is compiled and attach copies instead. Empty until step 6.
+mmap = []
+
+[lints]
+workspace = true

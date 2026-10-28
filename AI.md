@@ -43,6 +43,14 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Step 4: the Rust workspace and CI (Claude Opus 5.5, Claude Code, with one delegated agent)
+
+**What the maintainer asked for.** "Go" (steps 4 and 5), then "No ci on mac", then "Yes for all".
+
+**What the agent did.** `rust/` workspace with the `commonkit` crate (MIT; a copy of LICENSE in the crate, kept identical by `tests/license.rs`, because setting both `license` and `license-file` warns), the panic lints with a `clippy.toml` for tests, `unsafe_code = "deny"`, an empty default-on `mmap` feature, and `.github/workflows/ci.yml` with Python, Rust and conformance jobs on `ubuntu-latest` only. `uv build` still leaves `rust/` and `.github/` out of the sdist and wheel. The plan now says CI is Linux-only (macOS checked locally on thresher), and no longer says PlumCraft turns `mmap` off (C5).
+
+**The AI** split the agent's single working tree into this commit and step 5's, and checked step 4 builds, tests, lints and formats on its own.
+
 ### 2026-10-28 — Step 3: the Python package conforms to the contract (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the maintainer asked for.** "Cp, and then write some code", then "Yes" to fixing a slower attach before committing.
