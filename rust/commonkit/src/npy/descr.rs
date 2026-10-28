@@ -288,7 +288,9 @@ impl Field {
         self.name.is_empty()
     }
 
-    fn itemsize(&self) -> Option<u64> {
+    /// Bytes the field takes in an item: its descriptor's item size times its subarray's
+    /// element count. `None` on overflow.
+    pub fn itemsize(&self) -> Option<u64> {
         self.shape
             .iter()
             .try_fold(self.descr.itemsize()?, |acc, d| acc.checked_mul(*d))

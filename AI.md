@@ -43,6 +43,19 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — Step 6: the Rust store; two Python defects the port found (Claude Opus 5.5, Claude Code, with one delegated agent)
+
+**What the maintainer asked for.** "Go" for step 6, then "Go" for the AI's proposed follow-ups.
+
+**What the agent did** (about 2,400 lines of code and 1,700 of tests in `rust/commonkit`). `Store::new` that never fails, `attach` (mapped or copied) returning `Option<Segment>` with typed views and an element probe, `publish` returning `Result<bool, KeyCollision>` with every gate in contract order, the existing-key rule and `verify_republish` with padding masked, touch at most once per 60 s, `fsync` (`F_FULLFSYNC` on macOS), `.usage.json`, the counters of §11, and `shared_store` with the environment and `.policy.json`. The reap turns are taken at the contract's points; the reaper itself is a stub for step 7. `unsafe` is one `Mmap::map` call in `map.rs` behind the `mmap` feature, its `SAFETY:` comment citing contract §7. Dependencies: `memmap2` (optional), `bytemuck`, `log`, `rustix` (Unix), `fs4` (Windows), `tempfile` (dev). 110 tests pass with and without `mmap`, including ports of Python's store and shared tests under the same names, every read, admission, existing-key, policy and environment vector, and a mapping surviving unlink and rename-over.
+
+**Python defects the port found (fixed by the AI after the maintainer's go).**
+
+- `SharedArrayStore("")` made an **enabled** store in the working directory: `os.path.abspath("")` is the cwd, so the empty-root check never fired. Contract §6.1 says disabled. A new test failed before the fix.
+- `test_usage_bytes_must_be_a_non_negative_json_integer` (written in step 3 by an earlier agent) **tested nothing**: its fixture's `reap_interval_s=0` makes every `.usage.json` stale, so it passed whatever the file held. It now uses a store whose file can be fresh, with an integer control proving the file is read.
+
+**Also by the AI.** Installed the `x86_64-pc-windows-msvc` target; `cargo check` and `cargo clippy -D warnings` pass for Windows with both feature sets (type-check only).
+
 ### 2026-10-28 — Step 5: keys and `.npy` in Rust; Python's registry compares variant sets (Claude Opus 5.5, Claude Code, with one delegated agent)
 
 **What the agent did** (about 2,800 lines of Rust with tests). `keys.rs`: the grammar in full, schemes, the registry (a closed variant set compared as a set, pattern text compared), ASCII-only digest folding on build and none on parse, variant patterns through the `regex` crate (MIT OR Apache-2.0; missing from the plan's dependency list). `npy/`: a header parser for versions 1–3, both byte orders, Fortran order, trailing bytes and every descriptor class, ported in logic from ImpCraft's `impcraft-shm` reader, and a writer of numpy's exact header bytes. Every key vector and all 53 header vectors pass, read from the JSON at test time. The writer builds each header from the vector's array spec, not the fixture, and was checked by breaking it three ways (no growth padding, zero alignment spaces allowed, version 1 for every Latin-1 header): each break failed the vectors. A hand-rolled generator ran about 95,000 hostile cases (every truncation, mutated fixtures, random header texts, write-and-read-back, random keys) with no panic. No `unsafe`.

@@ -1,6 +1,6 @@
 # Status
 
-*Updated 2026-10-28 (steps 4 and 5).*
+*Updated 2026-10-28 (step 6).*
 
 ## Where things stand
 
@@ -40,6 +40,32 @@
 - **Tests:** 31 Rust tests. Every key vector (18 build, 24 parse, 8 registry) and every header vector (53) passes, read from `conformance/vectors/` at test time. The writer reproduces all 53 fixtures byte for byte from their array specs, and the file-level outcome of the 25 `reads.json` files is right. Hostile input: every truncation of every fixture, 20 000 mutated fixtures, 20 000 random header texts, 5 000 written-then-read headers, and 50 000 random keys checked against the grammar regex.
 - **Dependencies:** `regex` (MIT OR Apache-2.0); dev-only `serde_json` and `sha2` (both MIT OR Apache-2.0).
 
+## Step 6: the Rust store (2026-10-28, branch `step6-rust-store`, uncommitted)
+
+- **Modules** in `rust/commonkit/src/`:
+  - `store.rs`: `Store`, `Options`, `Mode`, `ArrayRef`, `KeyCollision`, `Counter`, `Stats`, `Usage`. Construction never fails (§6.1); attach takes any grammatical key (C4); publish runs the seven gates in contract order, then the existing-key rule (torn replaced and counted; whole and matching touched; anything else `Err(KeyCollision)`, file and mtime untouched, counted, logged at error level); `verify_republish` compares named-field bytes only, in 1 MiB pieces; `fsync` off by default.
+  - `segment.rs`: `Segment` (mapped or copied), `AttachMode`, typed views (`as_slice::<T>`, zero-copy only for native order and alignment), `to_f32_vec`/`to_f64_vec`, and the element probe ported from `impcraft-shm`.
+  - `policy.rs`: `Policy`, `.policy.json` (file over environment, C7), the number and flag grammars, `resolve_root`, `shared_store` and `shared_store_at`.
+  - `map.rs`: the crate's only `unsafe` (`memmap2::Mmap::map`), behind the default-on `mmap` feature, with a `SAFETY:` comment citing contract §7. Without the feature, attach copies.
+  - `sys.rs`: free space (`statvfs` via `rustix`; `fs4` on Windows), `F_FULLFSYNC` with an `fsync` fallback on macOS, directory sync on POSIX only, the touch as `utimensat(UTIME_NOW)`.
+  - `json.rs`: a small strict JSON reader for `.policy.json` and `.usage.json`.
+- **The reaper is a stub.** Reap turns are taken, rate-limited, after a publish and after a space or budget decline (§9.8); `Store::reap_turn` does nothing until step 7.
+- **Tests:** 110 pass with default features and 110 with `--no-default-features` (1 ignored each: `reaper_paths.json`, step 7). Ports of `test_store.py` and `test_shared.py` keep the Python names; the Python reaper tests are listed in `tests/store.rs` for step 7. Every `reads`, `admission`, `existing_key`, `env` and `policy` vector passes, read from the JSON.
+- **Dependencies added:** `memmap2` (optional), `bytemuck`, `log`, `rustix` (Unix), `fs4` (Windows); dev-only `tempfile`. All MIT-compatible.
+- **Rust and Python differ** (all within the contract):
+  - An unregistered but grammatical key is a plain miss in Rust (C4: grammar on read) and a bad key in Python.
+  - An object dtype can't be built in Rust (`Descr` refuses it), so the two object admission vectors decline by construction and tick no counter.
+  - `.usage.json` is read only if it is a regular file of at most 64 KiB.
+  - Windows: the default root is `%LOCALAPPDATA%\commonkit\store` (ImpCraft's practice; §12 leaves it open). The Windows target is not installed on thresher, so the Windows build is unchecked.
+- **Found in Python (not changed):**
+  - `SharedArrayStore("")` makes a store at the working directory; contract §6.1 says an empty root is disabled. Rust follows the contract. Only direct construction reaches it; `shared_store` never passes an empty root.
+  - `test_usage_bytes_must_be_a_non_negative_json_integer` passes without testing validity: its fixture's `reap_interval_s=0` makes every `.usage.json` stale. The Rust port uses 30 s.
+
+## Step 6 review (2026-10-28)
+
+- **Windows type-checks:** `cargo check` and `cargo clippy -D warnings` pass for `x86_64-pc-windows-msvc`, with and without `mmap` (target installed on thresher; nothing runs on Windows yet).
+- **Two Python defects the Rust port found, fixed:** `SharedArrayStore("")` was an enabled store in the working directory (contract §6.1 says disabled); and `test_usage_bytes_must_be_a_non_negative_json_integer` tested nothing, because its fixture made every `.usage.json` stale. It now uses a fresh store with an integer control. Python: 551 passed.
+
 ## Next
 
 1. **The maintainer accepts the contract** (plan step 2's exit). Open choices the contract made where the plan was silent, listed for confirmation:
@@ -57,5 +83,5 @@
    - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
    - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
    - Deferred: CI builds only on stable Rust (the stated minimum, 1.95, is unchecked); the integration tests read `../../conformance` and must be excluded from the crate package before publishing.
-3. **Steps 6–10:** the store, policy and reaper in Rust, cross-language conformance, then the ImpCraft and PlumCraft migrations.
+3. **Steps 7–10:** the reaper in Rust (replacing the step 6 stub, with `reaper_paths.json` and the Python reaper tests listed in `rust/commonkit/tests/store.rs`), cross-language conformance, then the ImpCraft and PlumCraft migrations.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.
