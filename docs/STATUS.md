@@ -1,6 +1,6 @@
 # Status
 
-*Updated 2026-10-28 (step 7).*
+*Updated 2026-10-28 (step 8).*
 
 ## Where things stand
 
@@ -89,6 +89,21 @@ Three problems the Rust reaper's agent found in Python and the contract, fixed i
 
 Rust 135 passed (both feature sets), clippy clean on macOS and the Windows target; Python 553 passed, ruff clean.
 
+## Step 8: cross-language conformance (2026-10-28, branch `step8-conformance`, uncommitted)
+
+- **Drivers** speaking the same JSON: `rust/ck-conform/` (a workspace member, `publish = false`; its `mmap` feature passes through to commonkit's, so `--no-default-features` still builds commonkit without it) and `conformance/ck_conform.py`. Commands: `publish`, `attach` (descr, shape, order, payload SHA-256, mapped), `hold` (attach, wait, re-hash), `reap` (with test seams `die_in_walk` and `sleep_before_unlink`), `plan` (a dry run with the tree's own policy, constructing no store), `usage`, `policy`, and `batch`; every result carries the counters it moved.
+- **`tests/test_conformance.py`** (61 cases, ~19 s; builds `ck-conform` with `cargo build`, skips only without cargo) and **`rust/ck-conform/tests/python.rs`** (8 cases, Rust in-process against `uv run python`; they skip without `uv` unless `CK_CONFORM_REQUIRE_PYTHON` is set). Cases: every header vector published by both languages gives identical files equal to numpy's fixture, and each attaches the other's (mapped and copied); a touch (hit or republish) from either side protects a segment from either reaper; both reapers reach one survivor set on copies, in turn, six at once, and in their dry runs; racing reapers after a broken stale lock count gone segments in both directions; a lock left by a dead reaper of either language is respected fresh and broken stale by the other; torn, partial and empty segments are torn misses and replaced alike; orphaned `.tmp` files swept alike; `.usage.json` from either is trusted by the other's budget gate; eight publishers racing on one key (four per language) all succeed; real collisions (other bytes, shape, order, dtype) raise in either and leave the file and mtime alone; a mapping survives the other language's reaper; every `policy.json` vector and three more read the same.
+- **Dry run** (contract §9.10, an implementation aid): `reap(dry_run=True, now=…)` and `reap_plan(...)` in Python; `Store::reap_with(&ReapOptions)` and `reap_plan(...)` in Rust. `ReapReport` gained `dry_run`, `unlink`, `sweep`, `low_water`, `need_free` and is no longer `Copy`. Tests in both languages (`tests/test_dry_run.py`, `rust/commonkit/tests/dry_run.rs`) compare every entry's `lstat` before and after, and check the plan against a real reap of the same tree.
+- **Thresher's real tree** (`/Volumes/CommonkitStore/store`, `MAX_GB=7`, `MIN_FREE_GB=1`, `TTL_S=604800`, no `.policy.json`), both dry runs with `now=1793197530`: 1725 segments scanned, 136 to unlink (281,616,168 bytes, the oldest, to bring 6.29 GB under the 6.01 GB low water mark; none expired), 0 `.tmp` to sweep. The two lists are identical, in order. `find … -exec stat -f '%N %Fm %z'` before and after (2392 entries) is identical: `claude-debug/step8_real_tree_*`.
+- **Disagreement found and fixed:** the Rust test helper `spec_fill` (copied into `ck-conform`) wrote big-endian payloads for `>M8`/`>m8`, but the generator's `arange(…, dtype=">i8") * 1000 + seed` yields native order, which is what the fixtures hold. Both copies now write little-endian. Test-only; no library or contract change.
+- **Gates:** Python 621 passed, ruff clean, the generator still reproduces the vectors. Rust: `cargo test` both feature sets, clippy `-D warnings` both ways and for `x86_64-pc-windows-msvc` both ways, `cargo fmt --check`; no new `unsafe`. `actionlint` is not installed on thresher and was not run on the new workflow (it parses as YAML).
+- **CI:** the `conformance` job now also installs uv and runs the pytest suite (Python 3.11) and `cargo test -p ck-conform` with `CK_CONFORM_REQUIRE_PYTHON=1`; the `python` job leaves `test_conformance.py` to it.
+- **Before publishing `commonkit` 0.1.0:** exclude the tests that read outside the crate (`tests/vectors_*`, `tests/license.rs`, and `common/`) from the package, since `cargo package --list` includes them; check the stated MSRV 1.95; run `actionlint`; see CI green once pushed.
+
+## `remove(key)` (2026-10-28)
+
+The maintainer: "Add a way to forcibly remove an existing cache entry (if not in use). This is to support existing users of ../impressionist", then chose **no in-use check** and **pycommonkit only for now**. Impressionist's checkpoint `reset=True` recomputes a value and relied on publish rewriting the segment; under C15 a republish is only a touch, or a `KeyCollision`, so reset no longer replaced anything. `SharedArrayStore.remove(key)` and `Store::remove(key)` unlink the segment (regular files only, never a symlink; readers keep their bytes), count `shm_removed` / `shm_remove_failed`, and never raise (contract §6.7, W1's one exception). Tests in both languages, plus a cross-language case: removed in one language, replaced in the other. **Still to do in impressionist:** call `remove` before republishing on reset, and switch its dependency from `../commonkit` to pycommonkit.
+
 ## Next
 
 1. **The maintainer accepts the contract** (plan step 2's exit). Open choices the contract made where the plan was silent, listed for confirmation:
@@ -106,5 +121,5 @@ Rust 135 passed (both feature sets), clippy clean on macOS and the Windows targe
    - The Rust writer declines a field name with a backslash, a control character, or a non-ASCII character that is not a letter or digit (stricter than Python, so safe). A name holding both quote characters is written exactly as Python does.
    - The reader misses `=`, `|` on a multi-byte kind, field titles, and duplicate dict keys, and normalises `<u1` to `|u1`, as numpy does.
    - Deferred: CI builds only on stable Rust (the stated minimum, 1.95, is unchecked); the integration tests read `../../conformance` and must be excluded from the crate package before publishing.
-3. **Steps 8–10:** cross-language conformance, then the ImpCraft and PlumCraft migrations. Step 7 (the reaper) is done above.
+3. **Steps 9–10:** the ImpCraft and PlumCraft migrations, after `commonkit` 0.1.0 is published. Step 8 is done above.
 4. **The old repository** `seantrue/commonkit`: still holds the step-2 work uncommitted on its `rust-crate-plan` branch; what to do with it (archive, or a pointer README) is the maintainer's call.

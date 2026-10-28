@@ -1,0 +1,27 @@
+[package]
+name = "ck-conform"
+version = "0.0.0"
+description = "Cross-language conformance driver for commonkit (test tooling; never published)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+default = ["mmap"]
+# Passed through, so `cargo test --no-default-features` at the workspace root still builds
+# commonkit without `mmap`: a default-on dependency here would unify it back on.
+mmap = ["commonkit/mmap"]
+
+[dependencies]
+commonkit = { path = "../commonkit", default-features = false }
+serde_json = "1"
+sha2 = "0.10"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

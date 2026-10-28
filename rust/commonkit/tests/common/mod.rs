@@ -108,15 +108,11 @@ pub fn spec_fill(descr: &Descr, n_items: u64, fill: &str) -> Vec<u8> {
                 }
             })
             .collect(),
+        // Little-endian even for `>M8`: the generator computes `arange(n, dtype=">i8") * 1000
+        // + seed`, and numpy arithmetic returns native (little-endian) order, so that is what
+        // the fixtures hold (found by step 8's cross-language publish of `big_M8_s`).
         Kind::Datetime | Kind::Timedelta => (0..n_items)
-            .flat_map(|i| {
-                let v = (i * 1000 + seed) as i64;
-                if big {
-                    v.to_be_bytes()
-                } else {
-                    v.to_le_bytes()
-                }
-            })
+            .flat_map(|i| ((i * 1000 + seed) as i64).to_le_bytes())
             .collect(),
         _ => generic(),
     }

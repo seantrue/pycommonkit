@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["commonkit"]
+members = ["commonkit", "ck-conform"]
 
 [workspace.package]
 edition = "2024"

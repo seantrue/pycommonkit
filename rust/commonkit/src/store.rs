@@ -47,7 +47,7 @@ pub const REAP_TURN_BUDGET: Duration = Duration::from_millis(50);
 pub const DEFAULT_REAP_BUDGET: Duration = Duration::from_millis(250);
 
 mod reap;
-pub use reap::ReapReport;
+pub use reap::{ReapOptions, ReapReport, reap_plan};
 
 // --------------------------------------------------------------------------- settings
 
@@ -134,10 +134,12 @@ pub enum Counter {
     ReapPartial,
     ReapRefused,
     ReapFailed,
+    Removed,
+    RemoveFailed,
 }
 
 impl Counter {
-    pub const ALL: [Counter; 20] = [
+    pub const ALL: [Counter; 22] = [
         Counter::Hit,
         Counter::Miss,
         Counter::Torn,
@@ -158,6 +160,8 @@ impl Counter {
         Counter::ReapPartial,
         Counter::ReapRefused,
         Counter::ReapFailed,
+        Counter::Removed,
+        Counter::RemoveFailed,
     ];
 
     /// The contract's name for this counter.
@@ -183,6 +187,8 @@ impl Counter {
             Counter::ReapPartial => "shm_reap_partial",
             Counter::ReapRefused => "shm_reap_refused",
             Counter::ReapFailed => "shm_reap_failed",
+            Counter::Removed => "shm_removed",
+            Counter::RemoveFailed => "shm_remove_failed",
         }
     }
 
@@ -462,6 +468,20 @@ impl Store {
         store
     }
 
+    /// An enabled store at an absolute `root` without the probe (§6.1), so nothing is written:
+    /// only for [`reap_plan`]'s dry run of a live tree.
+    fn unprobed(root: PathBuf, options: Options) -> Store {
+        Store {
+            disabled: root.as_os_str().is_empty(),
+            root,
+            options,
+            counters: std::array::from_fn(|_| AtomicU64::new(0)),
+            free: Mutex::new((0.0, 0)),
+            last_reap: Mutex::new(0.0),
+            hooks: Hooks::default(),
+        }
+    }
+
     /// Install test hooks. Not part of the API.
     #[doc(hidden)]
     pub fn with_hooks(mut self, hooks: Hooks) -> Store {
@@ -558,6 +578,43 @@ impl Store {
     }
 
     // ------------------------------------------------------------------------ writing
+
+    /// Unlink the segment for `key`; true when one was removed (contract §6.7).
+    ///
+    /// The one sanctioned exception to write-once: a caller that must replace a value under an
+    /// unchanged key (a recompute after a fix the key doesn't capture) removes it and publishes
+    /// again; otherwise a republish only touches, or is a [`KeyCollision`]. There is no in-use
+    /// check, by decision (2026-10-28): it only unlinks (§7), so a reader in any process that
+    /// holds the segment keeps the old bytes until it lets go. On Windows an open or mapped file
+    /// can't be unlinked; that is a failed removal (`shm_remove_failed`), not an error. Like
+    /// publishing it needs `ReadWrite` and a key its registered scheme accepts.
+    pub fn remove(&self, key: &str) -> bool {
+        if self.disabled || self.options.mode != Mode::ReadWrite {
+            self.count(Counter::DeclinedMode, 1);
+            return false;
+        }
+        let Ok(k) = Registry::global().parse(key) else {
+            self.count(Counter::BadKey, 1);
+            return false;
+        };
+        let path = self.root.join(k.relpath_buf());
+        // Only a regular file is ever ours to unlink: never follow or remove a symlink.
+        match fs::symlink_metadata(&path) {
+            Ok(m) if m.file_type().is_file() => {}
+            _ => return false,
+        }
+        match fs::remove_file(&path) {
+            Ok(()) => {
+                self.count(Counter::Removed, 1);
+                true
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => false,
+            Err(_) => {
+                self.count(Counter::RemoveFailed, 1);
+                false
+            }
+        }
+    }
 
     /// Store `array` under `key` (contract §6).
     ///
@@ -997,12 +1054,12 @@ mod tests {
     #[test]
     fn counter_names_are_the_contracts() {
         let names: Vec<_> = Counter::ALL.iter().map(|c| c.name()).collect();
-        assert_eq!(names.len(), 20);
+        assert_eq!(names.len(), 22);
         let mut sorted = names.clone();
         sorted.sort_unstable();
         sorted.dedup();
-        assert_eq!(sorted.len(), 20);
+        assert_eq!(sorted.len(), 22);
         assert!(names.iter().all(|n| n.starts_with("shm_")));
-        assert_eq!(Counter::ALL.iter().map(|c| c.index()).sum::<usize>(), 190);
+        assert_eq!(Counter::ALL.iter().map(|c| c.index()).sum::<usize>(), 231);
     }
 }

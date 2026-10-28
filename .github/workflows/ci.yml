@@ -26,10 +26,11 @@ jobs:
         with:
           enable-cache: true
       # 3.11 is the floor the model venvs need; 3.13 is current. Two runs in one job, not a matrix.
+      # The cross-language suite builds rust/ck-conform; it runs in the conformance job instead.
       - name: pytest (3.11)
-        run: uv run --python 3.11 --extra dev pytest -q
+        run: uv run --python 3.11 --extra dev pytest -q --ignore=tests/test_conformance.py
       - name: pytest (3.13)
-        run: uv run --python 3.13 --extra dev pytest -q
+        run: uv run --python 3.13 --extra dev pytest -q --ignore=tests/test_conformance.py
       - name: ruff
         run: uv run --python 3.13 --extra dev ruff check .
       - name: uv build leaves rust/ out
@@ -60,16 +61,27 @@ jobs:
         run: cargo package --list -p commonkit | grep -qx LICENSE
 
   conformance:
-    # For now the Rust tests that read conformance/vectors/; step 8 adds ck-conform and the
-    # cross-language tests that drive Python.
+    # Plan step 8: the Rust tests that read conformance/vectors/, then the cross-language suite,
+    # which runs the Python package and the Rust crate on one tree through their drivers
+    # (conformance/ck_conform.py and rust/ck-conform) in both directions.
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: rust
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-      - run: cargo test -p commonkit --test 'vectors*'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: vectors (Rust)
+        working-directory: rust
+        run: cargo test -p commonkit --test 'vectors*'
+      - name: cross-language (pytest drives both drivers)
+        run: uv run --python 3.11 --extra dev pytest -q tests/test_conformance.py tests/test_dry_run.py
+      - name: cross-language (Rust drives Python)
+        working-directory: rust
+        env:
+          # Fail, rather than skip, if uv were missing here.
+          CK_CONFORM_REQUIRE_PYTHON: "1"
+        run: cargo test -p ck-conform

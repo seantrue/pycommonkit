@@ -6,7 +6,7 @@ publishes; every other process attaches the same physical pages.
 Installed as **`pycommonkit`**, imported as **`commonkit`** (the PyPI name `commonkit` belongs
 to an unrelated project). A Rust crate, `commonkit`, implementing the same on-disk contract is
 in this repository under `rust/` (`docs/rust-crate-plan.md`): keys, segments, the store and the
-reaper are done; cross-language conformance tests come next.
+reaper are done, and a cross-language conformance suite runs both on one tree.
 
 The name is for Fortran's **named `COMMON` block**. `COMMON /GRID/ X, Y` in one
 subroutine and the same name in another, compiled separately, give both the same
@@ -95,6 +95,13 @@ a digest is broken. Everything else (an absent root, a full filesystem, a
 reaped or torn segment, a hostile `.usage.json` or `.policy.json`) returns
 `None` or `False` and ticks a counter. The constructor never raises: an
 unusable root leaves the store `disabled` and every method a no-op.
+
+**Replacing a value under the same key.** A segment is written once: publishing
+the same array again only refreshes it, and a different array raises
+`KeyCollision`. A caller that must replace a value whose key hasn't changed (a
+recompute after a fix the key doesn't capture) calls `remove(key)` first, then
+publishes. `remove` only unlinks, so a reader still holding the old segment keeps
+its bytes; there is no in-use check.
 
 **A value that can't be recomputed doesn't belong here alone.** Keep its
 durable copy somewhere you own and use the store to share it fast. (A pinned

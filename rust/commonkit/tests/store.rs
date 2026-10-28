@@ -1767,3 +1767,72 @@ fn an_already_gone_segment_counts_toward_the_target() {
         ".usage.json counts what is left, gone ones excluded"
     );
 }
+
+// ------------------------------------------------------------------------------ remove (§6.7)
+
+/// A caller replacing a value under an unchanged key removes it, then publishes again
+/// (`test_remove_lets_a_different_array_be_published`).
+#[test]
+fn test_remove_lets_a_different_array_be_published() {
+    let (_d, s) = store();
+    let k = key();
+    assert_eq!(s.publish(&k, wave(1000).r()), Ok(true));
+    assert!(
+        s.publish(&k, wave(999).r()).is_err(),
+        "a different array collides"
+    );
+    assert!(s.remove(&k));
+    assert!(s.attach(&k).is_none());
+    assert_eq!(s.publish(&k, wave(999).r()), Ok(true));
+    assert_eq!(s.attach(&k).unwrap().shape(), [999]);
+    assert_eq!(s.drain_stats().get("shm_removed"), 1);
+}
+
+#[test]
+fn test_remove_of_an_absent_key_is_false_and_counts_nothing() {
+    let (_d, s) = store();
+    assert!(!s.remove(&key()));
+    assert!(s.drain_stats().is_empty());
+}
+
+#[test]
+fn test_remove_needs_readwrite_and_a_valid_key() {
+    let (_d, s) = store();
+    s.publish(&key(), wave(1000).r()).unwrap();
+    let reader = again(
+        &s,
+        Options {
+            mode: Mode::Read,
+            ..options()
+        },
+    );
+    assert!(!reader.remove(&key()));
+    assert_eq!(reader.drain_stats().get("shm_declined_mode"), 1);
+    assert!(!s.remove(&format!("nosuchdomain:v1:x:{D1}:x")));
+    assert_eq!(s.drain_stats().get("shm_bad_key"), 1);
+    assert!(s.attach(&key()).is_some());
+}
+
+/// It only unlinks (§7): a reader holding the segment keeps the old bytes.
+#[test]
+fn test_remove_leaves_a_mapped_reader_its_bytes() {
+    let (_d, s) = store();
+    let a = wave(1000);
+    s.publish(&key(), a.r()).unwrap();
+    let held = s.attach(&key()).unwrap();
+    assert!(s.remove(&key()));
+    assert_eq!(held.bytes(), a.data.as_slice());
+}
+
+#[cfg(unix)]
+#[test]
+fn test_remove_never_unlinks_a_symlink() {
+    let (d, s) = store();
+    let victim = d.path().join("victim.npy");
+    std::fs::write(&victim, b"x").unwrap();
+    let path = s.path_for(&key()).unwrap();
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(&victim, &path).unwrap();
+    assert!(!s.remove(&key()));
+    assert!(path.symlink_metadata().unwrap().file_type().is_symlink() && victim.exists());
+}
