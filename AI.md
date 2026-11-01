@@ -43,6 +43,12 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-10-28 — pyuncommonkit 0.1.0 published to PyPI (the maintainer; Claude Opus 5.5, Claude Code, for checks, the tag and records)
+
+**The release was the maintainer's.** After PR #13 merged, they rebuilt `dist/` from a clean `main` at `c4d1e62` and uploaded with `twine upload --repository pypi`, using their own `~/.pypirc`; PyPI accepted `pyuncommonkit` where it had refused `pycommonkit`.
+
+**What the AI did.** Before the upload, rebuilt and checked `dist/` (only the two `pyuncommonkit` files; `twine check` passes; `Name: pyuncommonkit`). After it: confirmed the PyPI metadata through the JSON API (MIT, `>=3.11`, `numpy>=1.26`, five project links, 14 classifiers, the banner URL in the description); installed `pyuncommonkit==0.1.0` from PyPI into a fresh Python 3.11 environment and ran a publish-then-attach round trip (a read-only `memmap`, equal values, one publish and one hit counted); tagged `c4d1e62` as `pyuncommonkit-v0.1.0` (annotated) and pushed it; updated `STATUS.md` (~3 LOC). Not checked: how the PyPI page renders in a browser.
+
 ### 2026-10-28 — The PyPI distribution renamed to `pyuncommonkit` after PyPI refused `pycommonkit` (Claude Opus 5.5, Claude Code)
 
 **What happened.** The maintainer's upload of `pycommonkit` 0.1.0 to PyPI returned 400 Bad Request with no reason shown. The AI asked for a `--verbose` run; the maintainer then reported the cause: the name was too close to `commonkit`, an unrelated existing project. TestPyPI had accepted the same files the day's earlier trial, because TestPyPI has no `commonkit`. The AI's walkthrough had presented the TestPyPI run as the trial that catches problems; it cannot catch this one. The plan (2026-10-27) had checked only that `pycommonkit` was unregistered, not whether PyPI would accept it.
