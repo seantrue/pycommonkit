@@ -18,8 +18,8 @@ pub(crate) fn free_bytes(root: &Path) -> Option<u64> {
     Some(st.f_bavail.saturating_mul(st.f_frsize))
 }
 
-/// Windows has no `statvfs`; how it measures is not yet contract (§12). This is what Python's
-/// `shutil.disk_usage(root).free` reports there: bytes available to the caller.
+/// Windows has no `statvfs`: bytes available to the caller (contract §9.9), what Python's
+/// `shutil.disk_usage(root).free` reports there.
 #[cfg(windows)]
 pub(crate) fn free_bytes(root: &Path) -> Option<u64> {
     fs4::available_space(root).ok()

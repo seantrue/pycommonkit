@@ -796,16 +796,18 @@ def env_doc() -> dict:
     ev("root_relative", {P + "ROOT": "rel/store"}, {"root": "{cwd}/rel/store"},
        note="a relative root is resolved against the working directory")
     ev("root_default", {}, {"root": {"darwin": "{home}/Library/Caches/commonkit/store",
-                                     "linux": "/dev/shm/commonkit", "windows": None}},
-       note="Windows: unspecified until the Windows work merges (contract 12)")
+                                     "linux": "/dev/shm/commonkit",
+                                     "windows": "{localappdata}/commonkit/store"}},
+       note="{localappdata} is %LOCALAPPDATA% (contract 10.1)")
     ev("root_empty", {P + "ROOT": ""}, {"root": {
         "darwin": "{home}/Library/Caches/commonkit/store", "linux": "/dev/shm/commonkit",
-        "windows": None}})
+        "windows": "{localappdata}/commonkit/store"}})
     return doc("env", "Environment policy (COMMONKIT_STORE_*) with no .policy.json. "
                "`expect` lists effective store fields; \"default\" means the platform "
                "default; {home} and {cwd} are placeholders", vectors,
                defaults={"darwin": {"max_bytes": 2 * GIB, **DEFAULT_EXPECT},
-                         "linux": {"max_bytes": 8 * GIB, **DEFAULT_EXPECT}})
+                         "linux": {"max_bytes": 8 * GIB, **DEFAULT_EXPECT},
+                         "windows": {"max_bytes": 2 * GIB, **DEFAULT_EXPECT}})
 
 
 def policy_doc(w: Writer) -> dict:

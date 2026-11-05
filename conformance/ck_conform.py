@@ -133,7 +133,8 @@ def cmd_hold(args):
 
 
 def _rel(root, paths):
-    return [os.path.relpath(p, root) for p in paths]
+    """Paths relative to ``root``, ``/``-separated on every platform (contract 3.6)."""
+    return [os.path.relpath(p, root).replace(os.sep, "/") for p in paths]
 
 
 def cmd_reap(args):

@@ -1,4 +1,6 @@
 """The shared store's tree-wide policy comes from the environment, never from a caller."""
+import os
+
 import numpy as np
 import pytest
 
@@ -20,6 +22,10 @@ def test_defaults_per_platform(monkeypatch):
     if shared.sys.platform == "darwin":
         assert setting("ROOT").endswith("Library/Caches/commonkit/store")
         assert setting("MAX_GB") == 2.0  # local snapshots pin reaped segments
+    elif shared.sys.platform == "win32":
+        local = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local")
+        assert setting("ROOT") == os.path.join(local, "commonkit", "store")
+        assert setting("MAX_GB") == 2.0  # on disk, as macOS's
     else:
         assert setting("ROOT") == "/dev/shm/commonkit"
         assert setting("MAX_GB") == 8.0

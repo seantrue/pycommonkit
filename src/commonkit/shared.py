@@ -44,15 +44,21 @@ from .store import SharedArrayStore
 
 ENV_PREFIX = "COMMONKIT_STORE_"
 _DARWIN = sys.platform == "darwin"
+_WINDOWS = sys.platform == "win32"
 
 #: Per-platform defaults. macOS: the user cache directory on the internal SSD -- it has no
 #: /dev/shm, the SSD beat a RAM disk on first attach (0.69 ms against 0.76 ms), and a
 #: ``ram://`` disk commits its whole size up front as dirty memory. Linux: /dev/shm, which
-#: is RAM, so the budget is its only real bound.
+#: is RAM, so the budget is its only real bound. Windows: no /dev/shm either (it would
+#: resolve to ``\dev\shm`` on the current drive), so the per-user local cache, on disk like
+#: macOS and with its budget (contract 10.1; from seantrue/commonkit d8198ae).
 DEFAULTS = {
     "ROOT": (os.path.expanduser("~/Library/Caches/commonkit/store") if _DARWIN
+             else os.path.join(os.environ.get("LOCALAPPDATA")
+                               or os.path.expanduser("~/AppData/Local"), "commonkit", "store")
+             if _WINDOWS
              else "/dev/shm/commonkit"),
-    "MAX_GB": 2.0 if _DARWIN else 8.0,
+    "MAX_GB": 2.0 if _DARWIN or _WINDOWS else 8.0,
     "MIN_FREE_GB": 8.0,
     "TTL_S": 900.0,
     "REAP_S": 30.0,
