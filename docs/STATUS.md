@@ -1,10 +1,11 @@
 # Status
 
-*Updated 2026-11-04.*
+*Updated 2026-11-05.*
 
 ## Where things stand
 
-- **Windows defaults merged (2026-11-04, branch `windows-defaults`, uncommitted).** The maintainer asked to fix pycommonkit after PlumCraft's Windows port found that Python and Rust disagree there. The rest of `seantrue/commonkit`'s Windows work (`d8198ae`, the merge C10 promised) is now in pycommonkit:
+- **0.1.1 (2026-11-05): `commonkit` to crates.io and `pyuncommonkit` to PyPI,** for PlumCraft's 0.2.4 Windows release, which needs its Rust editor and Python engines to share a store. It carries the Windows defaults below (PR #15, `57864a1`). Tags `commonkit-v0.1.1` and `pyuncommonkit-v0.1.1`.
+- **Windows defaults (2026-11-04, merged 2026-11-05 as PR #15).** The maintainer asked to fix pycommonkit after PlumCraft's Windows port found that Python and Rust disagree there. The rest of `seantrue/commonkit`'s Windows work (`d8198ae`, the merge C10 promised) is now in pycommonkit:
   - the default root `%LOCALAPPDATA%\commonkit\store`, with a 2 GB budget, in both languages (Rust had the root and 8 GB);
   - free space on Windows (§9.9);
   - a segment's path joined in the platform's separator (§3.6): Python's `path_for` was `...\store\plumarr/91/...`.
