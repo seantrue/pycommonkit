@@ -43,6 +43,17 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-05 — commonkit and pyuncommonkit 0.1.1 (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked.** Before PlumCraft 0.2.4's release, which includes Intel Windows: "Make sure we are publishing any crates needed", then yes to bringing `windows-defaults` in first.
+
+**What the AI did:**
+
+- Merged `windows-defaults` as PR #15, after the four required checks passed. Locally the branch also passed 629 Python and the Rust workspace's tests on the Mac.
+- Bumped both to 0.1.1 (`pyproject.toml`, `rust/commonkit/Cargo.toml`, both lock files). Both are released, not just the crate: PlumCraft's Python SDK depends on `pyuncommonkit`, and the Python side is the one that had the wrong Windows root.
+- Updated the classifier comment, which said Windows had no Python default root. Windows is still not a classifier, as there is no Windows CI.
+- Publishing to crates.io and PyPI and the tags follow the merge, from a clean `main`.
+
 ### 2026-11-04 — Windows: the default root and budget, native segment paths, and a test suite that runs there (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked.** PlumCraft's Windows port found that its Rust and Python sides used different stores on Windows. Python fell back to `/dev/shm/commonkit`, which resolves to `\dev\shm\commonkit` on the current drive; Rust used `%LOCALAPPDATA%\commonkit\store`. The AI traced the fix to `seantrue/commonkit` `d8198ae`, which was never lifted into pycommonkit. The maintainer said "fix pycommonkit, test on Mac", then "Fix the test POSIX assumptions" once a Windows run showed what was left.

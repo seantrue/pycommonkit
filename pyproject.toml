@@ -1,6 +1,6 @@
 [project]
 name = "pyuncommonkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Named shared-memory segments for numpy arrays: publish once, attach from any process."
 readme = "README.md"
 authors = [
@@ -16,7 +16,8 @@ dependencies = [
 ]
 keywords = ["numpy", "npy", "mmap", "shared-memory", "cache"]
 # No License :: classifier: PEP 639's `license` expression replaces it. Linux and macOS only:
-# Windows is supported in the contract (§12) but has no Python default root or CI yet.
+# Windows has a default root since 0.1.1 and passes the suite on a Windows 11 machine, but has no
+# CI yet, so no Windows classifier.
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

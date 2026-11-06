@@ -1,6 +1,6 @@
 [package]
 name = "commonkit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Named shared-memory segments for numpy .npy arrays: publish once, map from any process (the Rust side of pycommonkit)"
 edition.workspace = true
 rust-version.workspace = true
