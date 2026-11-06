@@ -86,10 +86,11 @@ impl Setting {
 
 impl Policy {
     /// The platform defaults (contract §10.1). macOS: a 2 GB budget, because Time Machine's
-    /// local snapshots keep reaped segments' blocks allocated. Every other platform: 8 GB.
+    /// local snapshots keep reaped segments' blocks allocated. Windows: 2 GB too, since its
+    /// root is on disk as macOS's is. Linux: 8 GB of `/dev/shm`.
     pub fn platform_default() -> Policy {
         Policy {
-            max_bytes: if cfg!(target_os = "macos") {
+            max_bytes: if cfg!(target_os = "macos") || cfg!(windows) {
                 2 << 30
             } else {
                 8 << 30
@@ -305,15 +306,18 @@ fn read_policy_inner(path: &Path) -> Option<PolicyFile> {
 ///
 /// - macOS: `~/Library/Caches/commonkit/store`, on the internal SSD (no `/dev/shm`; the SSD
 ///   beat a RAM disk on first attach).
-/// - Windows: `%LOCALAPPDATA%\commonkit\store`. Not yet contract (§12); it is the viewer app's
-///   existing practice.
+/// - Windows: `%LOCALAPPDATA%\commonkit\store` (`~\AppData\Local` when it is unset).
 /// - Every other platform: `/dev/shm/commonkit`.
 pub fn default_root() -> Option<PathBuf> {
     if cfg!(target_os = "macos") {
         Some(std::env::home_dir()?.join("Library/Caches/commonkit/store"))
     } else if cfg!(windows) {
-        let base = std::env::var_os("LOCALAPPDATA").filter(|v| !v.is_empty())?;
-        Some(PathBuf::from(base).join("commonkit").join("store"))
+        // %LOCALAPPDATA%, else where Windows keeps it under the home folder, as Python does
+        let base = std::env::var_os("LOCALAPPDATA")
+            .filter(|v| !v.is_empty())
+            .map(PathBuf::from)
+            .or_else(|| Some(std::env::home_dir()?.join("AppData").join("Local")))?;
+        Some(base.join("commonkit").join("store"))
     } else {
         Some(PathBuf::from("/dev/shm/commonkit"))
     }

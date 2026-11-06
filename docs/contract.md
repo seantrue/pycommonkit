@@ -136,7 +136,7 @@ A key's **relative path** is
 {form}/{digest[0:2]}/{digest}.{variant}.npy
 ```
 
-with `/` as the separator on POSIX systems (Windows: §12). It is never absolute, and it depends only on the key, not on the scheme. The vectors in `keys.json` (`parse`, field `relpath`) pin it.
+with `/` as the separator. It is never absolute, and it depends only on the key, not on the scheme. The vectors in `keys.json` (`parse`, field `relpath`) pin it. A segment's file is the root joined with the relative path's three components, in the platform's own separator: on Windows `{root}\{form}\{digest[0:2]}\{digest}.{variant}.npy`, not the root with `/`-joined text appended, so that a path both implementations report for one key is the same string.
 
 ### 3.7 Digests
 
@@ -455,7 +455,7 @@ A store keeps the time of its last reap turn, initially zero. A **reap turn** (a
 
 ### 9.9 Free space
 
-Free bytes are `f_bavail × f_frsize` from `statvfs` on the root, cached for one second per store. If the figure cannot be obtained for any reason, free bytes are 0. (C6(e). Python conforms since pycommonkit 0.1.0 (A10). It used to catch only `OSError`, so a platform without `os.statvfs` raised `AttributeError`. Where `os.statvfs` is missing it now asks `shutil.disk_usage`, whose POSIX branch is the same figure.)
+Free bytes are `f_bavail × f_frsize` from `statvfs` on the root, cached for one second per store. On Windows, which has no `statvfs`, they are the bytes free to the caller on the root's volume (`GetDiskFreeSpaceExW`'s first figure, which Python's `shutil.disk_usage` and Rust's `fs4` report). If the figure cannot be obtained for any reason, free bytes are 0. (C6(e). Python conforms since pycommonkit 0.1.0 (A10). It used to catch only `OSError`, so a platform without `os.statvfs` raised `AttributeError`. Where `os.statvfs` is missing it now asks `shutil.disk_usage`, whose POSIX branch is the same figure.)
 
 ### 9.10 Dry run (an implementation aid, not on-disk behaviour)
 
@@ -472,14 +472,16 @@ Both implementations offer a **dry run** of the reaper, for inspecting a live tr
 
 Tree-wide policy applies to every segment in a tree, whichever process reaps, so it comes only from the policy file, the environment and the defaults, never from a caller. A caller chooses only its mode, its attach mode and its `min_array_bytes` (256 KiB by default for the shared store). Tests MAY pass an explicit root.
 
-| Setting | Environment variable | Kind | macOS default | Linux default | Store field |
-|---|---|---|---|---|---|
-| `ROOT` | `COMMONKIT_STORE_ROOT` | path | `~/Library/Caches/commonkit/store` | `/dev/shm/commonkit` | `root` |
-| `MAX_GB` | `COMMONKIT_STORE_MAX_GB` | number | 2.0 | 8.0 | `max_bytes = trunc(MAX_GB × 2^30)` |
-| `MIN_FREE_GB` | `COMMONKIT_STORE_MIN_FREE_GB` | number | 8.0 | 8.0 | `min_free_bytes = trunc(MIN_FREE_GB × 2^30)` |
-| `TTL_S` | `COMMONKIT_STORE_TTL_S` | number | 900 | 900 | `ttl_s` |
-| `REAP_S` | `COMMONKIT_STORE_REAP_S` | number | 30 | 30 | `reap_interval_s` |
-| `MAX_ARRAY_BYTES` | `COMMONKIT_STORE_MAX_ARRAY_BYTES` | number | 134217728 | 134217728 | `max_array_bytes = trunc(MAX_ARRAY_BYTES)` |
+| Setting | Environment variable | Kind | macOS default | Linux default | Windows default | Store field |
+|---|---|---|---|---|---|---|
+| `ROOT` | `COMMONKIT_STORE_ROOT` | path | `~/Library/Caches/commonkit/store` | `/dev/shm/commonkit` | `%LOCALAPPDATA%\commonkit\store` (`~\AppData\Local\commonkit\store` when `LOCALAPPDATA` is unset) | `root` |
+| `MAX_GB` | `COMMONKIT_STORE_MAX_GB` | number | 2.0 | 8.0 | 2.0 | `max_bytes = trunc(MAX_GB × 2^30)` |
+| `MIN_FREE_GB` | `COMMONKIT_STORE_MIN_FREE_GB` | number | 8.0 | 8.0 | 8.0 | `min_free_bytes = trunc(MIN_FREE_GB × 2^30)` |
+| `TTL_S` | `COMMONKIT_STORE_TTL_S` | number | 900 | 900 | 900 | `ttl_s` |
+| `REAP_S` | `COMMONKIT_STORE_REAP_S` | number | 30 | 30 | 30 | `reap_interval_s` |
+| `MAX_ARRAY_BYTES` | `COMMONKIT_STORE_MAX_ARRAY_BYTES` | number | 134217728 | 134217728 | 134217728 | `max_array_bytes = trunc(MAX_ARRAY_BYTES)` |
+
+Windows' root is on disk, as macOS's is (it has no `/dev/shm`, which would resolve to `\dev\shm` on the current drive), so it takes macOS's budget. From `seantrue/commonkit` `d8198ae`, the Windows work C10 said would be merged.
 | `FSYNC` | `COMMONKIT_STORE_FSYNC` | flag | off | off | `fsync` |
 | `VERIFY_REPUBLISH` | `COMMONKIT_STORE_VERIFY_REPUBLISH` | flag | off | off | `verify_republish` |
 
@@ -555,17 +557,15 @@ A store's counters are drained (read and reset together) by `drain_stats`.
 
 ## 12. Windows
 
-Windows is a supported platform (C10). Commonkit work for Windows already exists and will be merged later; this section will be completed then. Nothing in this contract may be read as excluding Windows. What is known now:
+Windows is a supported platform (C10). Nothing in this contract may be read as excluding Windows. The Windows work from `seantrue/commonkit` (`d8198ae`) is merged: the default root and budget (§10.1), free space (§9.9) and the segment path (§3.6) are specified. What is still open:
 
 - **Windows cannot unlink or rename over a file that is open or mapped** (without `FILE_SHARE_DELETE` on every handle, and mapping still pins it). This touches:
   - the mutation rule (§7), whose safety argument is POSIX's;
   - the reaper (§9.6), whose unlink of a mapped segment fails rather than succeeding;
   - rename-over when publishing and when replacing a torn segment (§6.4, §6.5).
-- **There is no `statvfs`.** How free space is measured (§9.9) is not yet specified.
-- **The default root is unspecified.** The viewer app's existing reader uses `%LOCALAPPDATA%\commonkit\store`; that is existing practice, not yet contract. Python today would use `/dev/shm/commonkit`.
-- The path separator in §3.6 and the separator count in §9.1 are POSIX rules.
+- The separator count in §9.1 (the reaper's suspicious-root check) is a POSIX rule; on Windows it counts the platform's separator, so `C:\a` is refused and `C:\a\b` is not.
 
-Until this section is complete, Windows behaviour is unspecified, and the vectors give `null` where an expectation is platform-specific to Windows.
+Where an expectation is specific to Windows and still open, the vectors give `null`.
 
 ## 13. Conformance vectors
 

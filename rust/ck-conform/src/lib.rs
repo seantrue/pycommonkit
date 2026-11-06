@@ -332,14 +332,17 @@ fn cmd_hold(args: &Value) -> Result<Value, Error> {
     })
 }
 
+/// Paths relative to `root`, `/`-separated on every platform (contract §3.6), as Python's.
 fn rel(root: &Path, paths: &[PathBuf]) -> Vec<String> {
     paths
         .iter()
         .map(|p| {
             p.strip_prefix(root)
                 .unwrap_or(p)
-                .to_string_lossy()
-                .into_owned()
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect::<Vec<_>>()
+                .join("/")
         })
         .collect()
 }

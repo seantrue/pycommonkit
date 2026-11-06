@@ -78,8 +78,10 @@ class Drivers:
         return [str(self.bin), cmd, text]
 
     def run(self, lang, cmd, args, env=None, check=True):
+        # UTF-8, not the platform's code page: the drivers print UTF-8 (Windows' default
+        # decoding turned a field named π into two characters)
         p = subprocess.run(self.argv(lang, cmd, args), capture_output=True, text=True,
-                           env=clean_env(env), timeout=120, check=False)
+                           encoding="utf-8", env=clean_env(env), timeout=120, check=False)
         if check:
             assert p.returncode == 0, f"{lang} {cmd}: {p.returncode}\n{p.stderr}"
             return json.loads(p.stdout)
@@ -88,7 +90,7 @@ class Drivers:
     def popen(self, lang, cmd, args, stdin=None):
         return subprocess.Popen(self.argv(lang, cmd, args), stdout=subprocess.PIPE,
                                 stdin=stdin, stderr=subprocess.PIPE, text=True,
-                                env=clean_env())
+                                encoding="utf-8", env=clean_env())
 
     def batch(self, lang, ops):
         return self.run(lang, "batch", ops)
@@ -108,13 +110,14 @@ def arr(descr="|u1", shape=(1000,), fill="ramp", order="C"):
 
 
 def tree_files(root):
-    """Every regular file under ``root``, relative, with its size and mtime."""
+    """Every regular file under ``root``, relative and ``/``-separated, with its size and
+    mtime."""
     out = {}
     for dirpath, _dirs, files in os.walk(root):
         for name in files:
             p = os.path.join(dirpath, name)
             st = os.lstat(p)
-            out[os.path.relpath(p, root)] = (st.st_size, st.st_mtime_ns)
+            out[os.path.relpath(p, root).replace(os.sep, "/")] = (st.st_size, st.st_mtime_ns)
     return out
 
 
@@ -498,6 +501,16 @@ def test_a_mapping_survives_the_other_languages_reaper(ck, tmp_path, holder, rea
     assert first["hit"] and first["mapped"]
     age(root / relpath(3), 7200)                    # after the hit's touch: now expired
     out = ck.run(reaper, "reap", {"store": store(root, ttl_s=3600)})
+    if os.name == "nt" and holder == "py":
+        # Windows won't unlink a file Python has mapped (§12; Python opens without
+        # FILE_SHARE_DELETE, Rust's std opens with it): the reaper skips it, the reader keeps
+        # its bytes, and the next reap after the reader lets go takes it.
+        assert out["reaped"] == 0 and (root / relpath(3)).exists()
+        after = json.loads(p.communicate("go\n", timeout=30)[0])
+        assert after == {"payload_sha256": first["payload_sha256"], "path_exists": True}
+        assert ck.run(reaper, "reap", {"store": store(root, ttl_s=3600)})["reaped"] == 1
+        assert not (root / relpath(3)).exists()
+        return
     assert out["reaped"] == 1 and not (root / relpath(3)).exists()
     after = json.loads(p.communicate("go\n", timeout=30)[0])
     assert after == {"payload_sha256": first["payload_sha256"], "path_exists": False}

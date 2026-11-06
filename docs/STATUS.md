@@ -1,8 +1,23 @@
 # Status
 
-*Updated 2026-10-28 (both packages published).*
+*Updated 2026-11-04.*
 
 ## Where things stand
+
+- **Windows defaults merged (2026-11-04, branch `windows-defaults`, uncommitted).** The maintainer asked to fix pycommonkit after PlumCraft's Windows port found that Python and Rust disagree there. The rest of `seantrue/commonkit`'s Windows work (`d8198ae`, the merge C10 promised) is now in pycommonkit:
+  - the default root `%LOCALAPPDATA%\commonkit\store`, with a 2 GB budget, in both languages (Rust had the root and 8 GB);
+  - free space on Windows (§9.9);
+  - a segment's path joined in the platform's separator (§3.6): Python's `path_for` was `...\store\plumarr/91/...`.
+  - The contract's §10.1 has a Windows column, §12 lists only what is still open, and the `env.json` vectors give the Windows root (`{localappdata}`).
+  - **Mac:** 629 Python, 154 Rust, ruff, clippy and fmt clean; the vectors regenerate.
+  - **Windows (yellowfin's `win11-dev`):** 618 Python passed and 11 skipped; 148 Rust passed, with every target run (`--no-fail-fast`). Unpatched `main` had 25 Python failures and 2 `ck-conform` failures there, and its other Rust targets never ran past `ck-conform`. Then the maintainer said "Fix the test POSIX assumptions":
+    - **The conformance harnesses** (`ck_conform.py` `_rel`, `ck-conform` `rel`) and the tests' own helpers now report relative paths with `/`, as `relpath` (§3.6). On Windows Rust's dry-run plan said `raw\00\…` and Python's `raw/00/…`.
+    - **Driver output is decoded as UTF-8:** Windows' code page turned a field named π into two characters.
+    - **Tests that patch `os.statvfs`** pass `raising=False`. The "no statvfs" test also makes `shutil.disk_usage` fail, since Windows measures through it.
+    - **The "unusable root" is under a regular file**, not `/proc/nonexistent`, which Windows creates as `C:\proc\nonexistent`.
+    - **Mapped segments:** the tests check what §12 says Windows does. A Python-held mapping can't be unlinked: the reaper skips it, the reader keeps its bytes, and a reap after release takes it. A Rust-held one can be, since Rust's std opens with `FILE_SHARE_DELETE`.
+    - **The symlink vector is skipped on Windows,** which can't set a link's own mtime.
+    - **`/Volumes/…` vectors** resolve against the current drive there.
 
 - **Lifted** from `seantrue/commonkit` (`main` at `4dbfc7d`; the plan, contract and vectors from its `rust-crate-plan` branch) into this repository with a fresh history. The Python package is unchanged apart from its distribution name (`pycommonkit`, imported as `commonkit`), SPDX licence metadata (`license = "MIT"`, `license-files`), and `module-name = "commonkit"` for uv_build.
 - **Plan:** `docs/rust-crate-plan.md`. Every decision, C1–C17, is the maintainer's. Section 13 is the step plan.

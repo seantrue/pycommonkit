@@ -294,6 +294,23 @@ fn a_python_mapping_survives_the_rust_reaper() {
             ..options()
         },
     );
+    if cfg!(windows) {
+        // Windows won't unlink a file Python has mapped (§12; Python opens it without
+        // FILE_SHARE_DELETE): the reaper skips it, the reader keeps its bytes, and a reap
+        // after the reader lets go takes it.
+        assert_eq!(reaper.reap(Duration::from_secs(10)).reaped, 0);
+        assert!(root.join(relpath(4)).exists());
+        child.stdin.take().unwrap().write_all(b"go\n").unwrap();
+        let after: Value = serde_json::from_str(&lines.next().unwrap().unwrap()).unwrap();
+        assert!(child.wait().unwrap().success());
+        assert_eq!(
+            after,
+            json!({"payload_sha256": first["payload_sha256"], "path_exists": true})
+        );
+        assert_eq!(reaper.reap(Duration::from_secs(10)).reaped, 1);
+        assert!(!root.join(relpath(4)).exists());
+        return;
+    }
     assert_eq!(reaper.reap(Duration::from_secs(10)).reaped, 1);
     child.stdin.take().unwrap().write_all(b"go\n").unwrap();
     let after: Value = serde_json::from_str(&lines.next().unwrap().unwrap()).unwrap();
@@ -424,13 +441,16 @@ fn dry_runs_plan_the_same_in_both_languages() {
                 "dry_run": true, "now": t}),
     )
     .unwrap();
+    // `/`-separated on every platform, as the Python driver reports (contract §3.6)
     let rel = |ps: &[PathBuf]| -> Vec<String> {
         ps.iter()
             .map(|p| {
                 p.strip_prefix(&root)
                     .unwrap()
-                    .to_string_lossy()
-                    .into_owned()
+                    .components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("/")
             })
             .collect()
     };

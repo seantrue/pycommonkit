@@ -43,6 +43,35 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-04 — Windows: the default root and budget, native segment paths, and a test suite that runs there (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked.** PlumCraft's Windows port found that its Rust and Python sides used different stores on Windows. Python fell back to `/dev/shm/commonkit`, which resolves to `\dev\shm\commonkit` on the current drive; Rust used `%LOCALAPPDATA%\commonkit\store`. The AI traced the fix to `seantrue/commonkit` `d8198ae`, which was never lifted into pycommonkit. The maintainer said "fix pycommonkit, test on Mac", then "Fix the test POSIX assumptions" once a Windows run showed what was left.
+
+**What the AI did** (~160 lines added and ~55 removed over 15 files, plus the regenerated `env.json`):
+
+- **The rest of the Windows work C10 promised:**
+  - `%LOCALAPPDATA%\commonkit\store` with a 2 GB budget in both languages. Rust had the root but 8 GB, and had no fallback when `LOCALAPPDATA` is unset.
+  - Python's `path_for` joins the segment path in the platform's separator. It was `...\store\plumarr/91/...`.
+  - The contract: §10.1 has a Windows column; §3.6 and §9.9 say how the path and free space work on Windows; §12 lists only what is open. The `env.json` vectors give the Windows root (`{localappdata}`).
+- **The tests' POSIX assumptions:**
+  - Both conformance harnesses, and the tests' helpers, report relative paths with `/`. **That was a real disagreement:** on Windows Rust's dry-run plan said `raw\00\…` and Python's `raw/00/…`.
+  - Driver output is decoded as UTF-8.
+  - `os.statvfs` patches pass `raising=False`, and the no-statvfs test also fails `shutil.disk_usage`.
+  - The unusable root sits under a regular file.
+  - Mapped-segment tests check §12's Windows behaviour rather than skipping it. A Python-held mapping can't be unlinked there, but a Rust-held one can, since Rust's std opens with `FILE_SHARE_DELETE`. The AI found that distinction in the test results.
+  - The symlink vector is skipped on Windows, which can't set a link's own mtime.
+  - `/Volumes/…` vectors resolve against the current drive.
+
+**Defects in the AI's work, caught by running it:**
+
+- Its first Windows-root change broke `test_defaults_per_platform`, which asserted the old Windows default; the next run added the missing `import os`. Both were caught by comparing the Windows failure lists before and after the change.
+- Its first Windows Rust runs stopped at the first failing target. So `vectors_store`'s `root_absolute` failure only showed after `ck-conform` passed; the final runs use `--no-fail-fast`.
+
+**Tests:**
+
+- Mac: 629 Python, 154 Rust; ruff, clippy and fmt clean.
+- Windows (`win11-dev`): 618 Python passed and 11 skipped; 148 Rust passed. Unpatched `main` there had 25 Python failures and 2 `ck-conform` failures, and its later Rust targets never ran.
+
 ### 2026-10-28 — pyuncommonkit 0.1.0 published to PyPI (the maintainer; Claude Opus 5.5, Claude Code, for checks, the tag and records)
 
 **The release was the maintainer's.** After PR #13 merged, they rebuilt `dist/` from a clean `main` at `c4d1e62` and uploaded with `twine upload --repository pypi`, using their own `~/.pypirc`; PyPI accepted `pyuncommonkit` where it had refused `pycommonkit`.

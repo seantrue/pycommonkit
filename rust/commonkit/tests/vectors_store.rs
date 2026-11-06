@@ -264,11 +264,16 @@ fn env_of(v: &Value) -> impl Fn(&str) -> Option<OsString> {
 fn placeholders(text: &str, root: &Path) -> PathBuf {
     let home = std::env::home_dir().unwrap();
     let cwd = std::env::current_dir().unwrap();
-    PathBuf::from(
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+    let p = PathBuf::from(
         text.replace("{home}", home.to_str().unwrap())
             .replace("{cwd}", cwd.to_str().unwrap())
-            .replace("{root}", root.to_str().unwrap()),
-    )
+            .replace("{root}", root.to_str().unwrap())
+            .replace("{localappdata}", &local),
+    );
+    // On Windows a vector's `/Volumes/...` has no drive, and takes the current one; elsewhere
+    // an absolute path is unchanged
+    std::path::absolute(&p).unwrap_or(p)
 }
 
 /// Check the effective store fields a vector names. `root` is checked by the caller.

@@ -132,7 +132,8 @@ def test_declines_when_the_filesystem_is_near_full_and_never_blocks(
         store, monkeypatch):
     class _FakeVfs:
         f_bavail, f_frsize = 1, 4096
-    monkeypatch.setattr(os, "statvfs", lambda p: _FakeVfs())
+    # raising=False: Windows has no os.statvfs, and the store uses it when it is there
+    monkeypatch.setattr(os, "statvfs", lambda p: _FakeVfs(), raising=False)
     store._statvfs_at = 0.0
     store.min_free_bytes = 8 * 2**30
     assert store.publish(key(), _wave()) is False
@@ -155,8 +156,11 @@ def test_mode_off_is_entirely_inert(tmp_path):
     assert s.attach(key()) is None and s.publish(key(), _wave()) is False
 
 
-def test_an_unusable_root_degrades_instead_of_raising():
-    s = SharedArrayStore("/proc/nonexistent/segments", mode="readwrite")
+def test_an_unusable_root_degrades_instead_of_raising(tmp_path):
+    # Under a regular file, which no platform lets become a directory (Windows would create
+    # /proc/nonexistent as C:\proc\nonexistent).
+    (tmp_path / "a-file").write_bytes(b"x")
+    s = SharedArrayStore(str(tmp_path / "a-file" / "segments"), mode="readwrite")
     assert s.disabled is True
     assert s.attach(key()) is None and s.publish(key(), _wave()) is False
 
@@ -169,6 +173,12 @@ def test_unlink_while_mapped_keeps_a_live_reader_working(store):
     a = _wave()
     store.publish(key(), a)
     b = store.attach(key())
+    if os.name == "nt":
+        # Windows refuses to unlink a mapped file (§12): the name stays until the mapping goes.
+        with pytest.raises(PermissionError):
+            os.unlink(store.path_for(key()))
+        assert np.array_equal(np.asarray(b), a)
+        return
     os.unlink(store.path_for(key()))
     assert np.array_equal(np.asarray(b), a)
     assert store.attach(key()) is None
@@ -287,7 +297,7 @@ def test_a_declined_publish_still_reaps(store, monkeypatch):
     for k in ks:
         _age(store, k, 2 * store.ttl_s)
     assert store.drain_stats()["shm_reaped"] == 0
-    monkeypatch.setattr(os, "statvfs", lambda p: _Vfs(4096))
+    monkeypatch.setattr(os, "statvfs", lambda p: _Vfs(4096), raising=False)
     store.min_free_bytes = 2**30
     store._statvfs_at = 0.0
     store._last_reap = 0.0
@@ -346,7 +356,7 @@ def test_the_free_space_floor_evicts_least_recently_used(store, monkeypatch):
     seg = os.path.getsize(store.path_for(ks[0]))
     store.max_bytes = 2**40                             # far under budget
     store.min_free_bytes = seg                          # floor + 25%: 1.25 segments
-    monkeypatch.setattr(os, "statvfs", lambda p: _Vfs(0))
+    monkeypatch.setattr(os, "statvfs", lambda p: _Vfs(0), raising=False)
     out = store.reap(budget_s=5)
     assert out["reaped"] == 2                           # the two least recently used
     assert [store.attach(k) is not None for k in ks] == [False, False, True, True]
@@ -524,8 +534,14 @@ def test_a_failed_directory_sync_fails_the_publish_but_keeps_the_segment(store, 
 
 
 def test_free_space_is_zero_without_statvfs(store, monkeypatch):
-    """A platform with no os.statvfs raised AttributeError out of publish (§9.9, A10)."""
-    monkeypatch.delattr(os, "statvfs")
+    """A platform with no os.statvfs raised AttributeError out of publish (§9.9, A10). With
+    no way to measure (no statvfs, and shutil failing too) free space is 0."""
+    monkeypatch.delattr(os, "statvfs", raising=False)
+
+    def unmeasurable(path):
+        raise OSError("no free space figure")
+
+    monkeypatch.setattr(cks.shutil, "disk_usage", unmeasurable)
     store._statvfs_at = 0.0
     assert store.publish(key(), _wave()) is False
     assert {k: v for k, v in store.drain_stats().items() if v} == {"shm_declined_space": 1}
@@ -607,6 +623,14 @@ def test_remove_leaves_a_mapped_reader_its_bytes(store):
     store.publish(k, _wave())
     held = store.attach(k)
     expected = np.array(held)
+    if os.name == "nt":
+        # Windows won't unlink a mapped file (§12): remove fails while the reader holds it,
+        # the reader keeps its bytes, and remove works once it lets go.
+        assert not store.remove(k)
+        assert np.array_equal(held, expected)
+        del held
+        assert store.remove(k)
+        return
     assert store.remove(k)
     assert np.array_equal(held, expected)
 

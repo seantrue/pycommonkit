@@ -356,7 +356,9 @@ class SharedArrayStore:
         ``keys.relpath`` is strict about the key shape, so a malformed key raises
         here rather than producing a path the reaper might later unlink.
         """
-        return os.path.join(self.root, _keys.relpath(key))
+        # The relative path is `/`-separated (contract 3.6); joined with this platform's
+        # separator, so a Windows path isn't `...\store\plumarr/91/...`.
+        return os.path.join(self.root, *_keys.relpath(key).split("/"))
 
     # ---------------------------------------------------------------- reading
 
@@ -812,8 +814,8 @@ def _measure_free(root: str) -> int:
     """Free bytes on ``root``'s volume, 0 on any failure (contract §9.9)."""
     # Any failure is 0 free, not an exception: catching only OSError let AttributeError
     # out on a platform without os.statvfs. Windows has none, so it asks shutil, whose
-    # POSIX branch is this same f_bavail * f_frsize; how Windows measures is not yet
-    # contract (§12).
+    # POSIX branch is this same f_bavail * f_frsize and whose Windows one is
+    # GetDiskFreeSpaceExW's free-to-caller figure (§9.9).
     try:
         if hasattr(os, "statvfs"):
             st = os.statvfs(root)

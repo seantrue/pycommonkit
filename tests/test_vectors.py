@@ -290,6 +290,8 @@ def test_reaper_paths(v, tmp_path):
     target.parent.mkdir(parents=True, exist_ok=True)
     then = time.time() - v["age_s"]
     if v["kind"] == "symlink":
+        if os.name == "nt":
+            pytest.skip("Windows can't set a link's own mtime (utime follow_symlinks=False)")
         outside = tmp_path / "outside.npy"
         outside.write_bytes(bytes(64))
         os.utime(outside, (then, then))
@@ -333,8 +335,11 @@ def clean_env(monkeypatch):
 
 
 def _placeholders(text: str, root: str) -> str:
-    return (text.replace("{home}", os.path.expanduser("~")).replace("{cwd}", os.getcwd())
-            .replace("{root}", root))
+    local = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~/AppData/Local")
+    # abspath: on Windows a vector's `/Volumes/...` has no drive, and takes the current one
+    return os.path.abspath(text.replace("{home}", os.path.expanduser("~"))
+                            .replace("{cwd}", os.getcwd()).replace("{root}", root)
+                            .replace("{localappdata}", local))
 
 
 def _check_fields(store, expect: dict, defaults: dict, root: str) -> None:
@@ -344,8 +349,8 @@ def _check_fields(store, expect: dict, defaults: dict, root: str) -> None:
                 want = want.get(PLATFORM)
                 if want is None:
                     pytest.skip(f"default root unspecified on {PLATFORM}")
-            assert os.path.abspath(store.root if store else ck_shared.setting("ROOT")) == \
-                _placeholders(want, root)
+            assert os.path.normpath(os.path.abspath(
+                store.root if store else ck_shared.setting("ROOT"))) == _placeholders(want, root)
             continue
         if want == "default":
             want = defaults[field]
