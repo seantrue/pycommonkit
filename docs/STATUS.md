@@ -4,7 +4,8 @@
 
 ## Where things stand
 
-- **64-digit (BLAKE3) digests (2026-11-10, branch `b3-digests`).** For PlumCraft's B10 (slow hashing of large arrays). A key's digest may be 32 or 64 lower-case hex digits, in the contract (§3.7), both languages, the reaper and the vectors. Old readers see a 64-digit key as a miss. To be released as 0.1.2 once merged (the maintainer allowed it).
+- **0.1.2 (2026-11-10): `commonkit` and `pyuncommonkit`,** carrying the 64-digit digests below, for PlumCraft's B10. Tags `commonkit-v0.1.2` and `pyuncommonkit-v0.1.2`.
+- **64-digit (BLAKE3) digests (2026-11-10, PR #17).** For PlumCraft's B10 (slow hashing of large arrays). A key's digest may be 32 or 64 lower-case hex digits, in the contract (§3.7), both languages, the reaper and the vectors. Old readers see a 64-digit key as a miss. Released in 0.1.2.
 - **0.1.1 (2026-11-05): `commonkit` to crates.io and `pyuncommonkit` to PyPI,** for PlumCraft's 0.2.4 Windows release, which needs its Rust editor and Python engines to share a store. It carries the Windows defaults below (PR #15, `57864a1`). Tags `commonkit-v0.1.1` and `pyuncommonkit-v0.1.1`.
 - **Windows defaults (2026-11-04, merged 2026-11-05 as PR #15).** The maintainer asked to fix pycommonkit after PlumCraft's Windows port found that Python and Rust disagree there. The rest of `seantrue/commonkit`'s Windows work (`d8198ae`, the merge C10 promised) is now in pycommonkit:
   - the default root `%LOCALAPPDATA%\commonkit\store`, with a 2 GB budget, in both languages (Rust had the root and 8 GB);

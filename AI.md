@@ -43,6 +43,12 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-10 — commonkit and pyuncommonkit 0.1.2 (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked:** for PlumCraft's B10 (BLAKE3 handles), "Yes, publish commonkit", then "Merge #17".
+
+**What the AI did:** bumped both to 0.1.2 (`pyproject.toml`, `rust/commonkit/Cargo.toml`, both lock files), carrying only #17's 64-digit digests. Gates on the Mac from the bump: 642 Python tests, every Rust target with `--locked`, ruff, clippy `-D warnings`, the vectors reproducing, `twine check` of the wheel and sdist, and `cargo publish --dry-run`. The wheel was installed into a fresh venv, where it reported 0.1.2 and built a 64-digit key and its path. Not run on Windows. Publishing to crates.io and PyPI and the tags follow the merge, from a clean `main`.
+
 ### 2026-11-10 — 64-digit (BLAKE3) digests in keys (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked:** PlumCraft's B10, "Fix the slow hashing issues for content addressed storage", where MD5 of a 144 MB array took 190 ms against 10 ms for BLAKE3. Offered the choice, they picked "Go to BLAKE3 now", and then allowed publishing commonkit and pyuncommonkit for it.
