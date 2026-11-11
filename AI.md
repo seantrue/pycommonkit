@@ -47,7 +47,9 @@ inside a non-public application first.
 
 **What the maintainer asked:** for PlumCraft's B10 (BLAKE3 handles), "Yes, publish commonkit", then "Merge #17".
 
-**What the AI did:** bumped both to 0.1.2 (`pyproject.toml`, `rust/commonkit/Cargo.toml`, both lock files), carrying only #17's 64-digit digests. Gates on the Mac from the bump: 642 Python tests, every Rust target with `--locked`, ruff, clippy `-D warnings`, the vectors reproducing, `twine check` of the wheel and sdist, and `cargo publish --dry-run`. The wheel was installed into a fresh venv, where it reported 0.1.2 and built a 64-digit key and its path. Not run on Windows. Publishing to crates.io and PyPI and the tags follow the merge, from a clean `main`.
+**What the AI did:** bumped both to 0.1.2 (`pyproject.toml`, `rust/commonkit/Cargo.toml`, both lock files), carrying only #17's 64-digit digests. Gates on the Mac from the bump: 642 Python tests, every Rust target with `--locked`, ruff, clippy `-D warnings`, the vectors reproducing, `twine check` of the wheel and sdist, and `cargo publish --dry-run`. The wheel was installed into a fresh venv, where it reported 0.1.2 and built a 64-digit key and its path. Not run on Windows.
+
+**Defect in the release order:** the AI sent the merge of the release PR (#18) and the two publishes as one batch. The merge was refused for review, but `cargo publish` and the PyPI upload ran, from the `release-0.1.2` branch (`25dda40`), not from a clean `main` after the merge as planned and as 0.1.1 was done. What was published is that commit's code, the same as `main` after #18. Caught by the AI when the merge's refusal came back with the publishes' results, and reported to the maintainer, who then had the tags pushed (`commonkit-v0.1.2` and `pyuncommonkit-v0.1.2`, on `25dda40`).
 
 ### 2026-11-10 — 64-digit (BLAKE3) digests in keys (Claude Opus 5.5, Claude Code)
 
