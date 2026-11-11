@@ -2,7 +2,7 @@
  "contract": 1,
  "category": "keys",
  "about": "Key building, parsing (grammar and scheme), key to path, registry",
- "grammar": "\\A[a-z0-9]+:[a-z0-9]+:[a-z0-9]+:[0-9a-f]{32}:[a-z0-9]+\\Z",
+ "grammar": "\\A[a-z0-9]+:[a-z0-9]+:[a-z0-9]+:(?:[0-9a-f]{32}|[0-9a-f]{64}):[a-z0-9]+\\Z",
  "schemes": {
   "cvkeys": {
    "domain": "cvkeys",
@@ -107,6 +107,37 @@
    "id": "digest_33",
    "scheme": "cvkeys",
    "digest": "ababababababababababababababababa",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_64",
+   "scheme": "cvkeys",
+   "digest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "key": "cvkeys:v1:pil:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef:o0"
+   },
+   "note": "a 64-digit (BLAKE3) digest is a digest too (contract 3.7)"
+  },
+  {
+   "id": "digest_63",
+   "scheme": "cvkeys",
+   "digest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde",
+   "variant": "o0",
+   "form": "pil",
+   "expect": {
+    "error": "digest"
+   }
+  },
+  {
+   "id": "digest_65",
+   "scheme": "cvkeys",
+   "digest": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdefa",
    "variant": "o0",
    "form": "pil",
    "expect": {
@@ -305,6 +336,30 @@
   {
    "id": "digest_33",
    "key": "cvkeys:v1:pil:ababababababababababababababababa:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": false,
+    "scheme_ok": false
+   }
+  },
+  {
+   "id": "digest_64",
+   "key": "cvkeys:v1:pil:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef:o0",
+   "scheme": "cvkeys",
+   "expect": {
+    "grammar": true,
+    "scheme_ok": true,
+    "parts": [
+     "pil",
+     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+     "o0"
+    ],
+    "relpath": "pil/01/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.o0.npy"
+   }
+  },
+  {
+   "id": "digest_63",
+   "key": "cvkeys:v1:pil:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde:o0",
    "scheme": "cvkeys",
    "expect": {
     "grammar": false,

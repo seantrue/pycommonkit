@@ -24,6 +24,21 @@
    "note": "not expired and nothing over target"
   },
   {
+   "id": "segment_64",
+   "path": "pil/01/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "reaped",
+   "note": "a 64-digit (BLAKE3) digest's segment is reaped like any other (contract 3.7)"
+  },
+  {
+   "id": "digest_63",
+   "path": "pil/01/0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcde.o0.npy",
+   "kind": "file",
+   "age_s": 7200,
+   "expect": "kept"
+  },
+  {
    "id": "shard_mismatch",
    "path": "pil/cd/abababababababababababababababab.o0.npy",
    "kind": "file",

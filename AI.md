@@ -43,6 +43,14 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-10 — 64-digit (BLAKE3) digests in keys (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked:** PlumCraft's B10, "Fix the slow hashing issues for content addressed storage", where MD5 of a 144 MB array took 190 ms against 10 ms for BLAKE3. Offered the choice, they picked "Go to BLAKE3 now", and then allowed publishing commonkit and pyuncommonkit for it.
+
+**What the AI did:** commonkit doesn't hash, so the change is only the digest rule: a key's digest is now 32 or 64 lower-case hex digits (contract §3.1, §3.3, §3.7 and the reaper's §9.4 pattern). The two lengths can't be confused, so one scheme holds both and a key still names one content (W1); a reader older than the rule finds a 64-digit key unparseable, a miss. Changed in Python (`keys.py`, the reaper's segment pattern in `store.py`) and Rust (`keys::is_digest`, `store/reap.rs`). Vectors: `keys.build` and `keys.parse` gain `digest_64`, `digest_63` and `digest_65`, `reaper_paths` gains `segment_64` (reaped) and `digest_63` (kept), and the vectors' grammar takes both lengths. Tests: a 64-digit key publishes, attaches and removes; the refusal test now also refuses 48 and 66 digits. ~50 LOC, besides regenerated vectors. 642 Python and every Rust target pass; ruff, clippy and fmt are clean.
+
+**Defects:** the AI's first vector constant was named `D3`, which the generator already used for another digest; seen in the generated output before any commit and renamed `D64`.
+
 ### 2026-11-05 — commonkit and pyuncommonkit 0.1.1 (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked.** Before PlumCraft 0.2.4's release, which includes Intel Windows: "Make sure we are publishing any crates needed", then yes to bringing `windows-defaults` in first.

@@ -97,7 +97,7 @@ _NPY_MAGIC = b"\x93NUMPY"
 #: The reaper's candidates (contract §9.4): ``{form}/{xx}/{digest}.{variant}.npy`` with
 #: the shard equal to the digest's first two characters. Matched per path component.
 _SHARD_RE = re.compile(r"[0-9a-f]{2}")
-_SEGMENT_NAME_RE = re.compile(r"([0-9a-f]{2})[0-9a-f]{30}\.[a-z0-9]+\.npy")
+_SEGMENT_NAME_RE = re.compile(r"([0-9a-f]{2})(?:[0-9a-f]{30}|[0-9a-f]{62})\.[a-z0-9]+\.npy")
 
 #: An orphaned temporary file is swept once it is this old (contract §9.5). A writer
 #: holds its ``.tmp`` for one ``np.save`` -- milliseconds -- so an hour old means the

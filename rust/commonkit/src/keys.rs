@@ -38,7 +38,7 @@ pub enum KeyError {
     DtypeForm(String),
     /// A dtype that is not a descriptor of contract §5.4.
     Dtype(String),
-    /// After ASCII folding, the digest is not 32 lower-case hex digits.
+    /// After ASCII folding, the digest is not 32 or 64 lower-case hex digits.
     Digest(String),
     /// A form the scheme does not have.
     UnknownForm(String),
@@ -64,7 +64,7 @@ impl fmt::Display for KeyError {
             KeyError::Pattern(why) => write!(f, "bad variant pattern: {why}"),
             KeyError::DtypeForm(form) => write!(f, "dtype declared for unknown form {form:?}"),
             KeyError::Dtype(d) => write!(f, "not a descriptor: {d:?}"),
-            KeyError::Digest(d) => write!(f, "not a 32-digit hex digest: {d:?}"),
+            KeyError::Digest(d) => write!(f, "not a 32- or 64-digit hex digest: {d:?}"),
             KeyError::UnknownForm(form) => write!(f, "unknown form {form:?}"),
             KeyError::UnknownVariant(v) => write!(f, "unknown variant {v:?}"),
             KeyError::Grammar(k) => write!(f, "not a key: {k:?}"),
@@ -84,9 +84,9 @@ pub fn is_token(s: &str) -> bool {
             .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
 }
 
-/// Is `s` a digest: exactly 32 of `[0-9a-f]`?
+/// Is `s` a digest: exactly 32 (md5) or 64 (BLAKE3) of `[0-9a-f]` (§3.4)?
 pub fn is_digest(s: &str) -> bool {
-    s.len() == 32 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    matches!(s.len(), 32 | 64) && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 /// A key that satisfies the grammar of contract §3.1, whatever scheme it belongs to.

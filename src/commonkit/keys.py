@@ -42,10 +42,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
-#: Segments are addressed by md5, lowercase. Every pattern here is used with
+#: Segments are addressed by a lowercase hex digest: 32 digits (md5) or 64 (BLAKE3,
+#: contract §3.4); the length tells them apart, so one key still names one content. Every pattern here is used with
 #: ``fullmatch``, never ``match`` with ``$``: ``$`` also matches before a final
 #: newline, which let ``"...\n"`` through as a digest or token (contract §3.1).
-_DIGEST_RE = re.compile(r"[0-9a-f]{32}")
+_DIGEST_RE = re.compile(r"[0-9a-f]{32}|[0-9a-f]{64}")
 
 #: Every other component is a bare lowercase token. Restrictive on purpose:
 #: these become PATH components, and a key is the only thing standing between
@@ -110,7 +111,7 @@ class KeyScheme:
 
         self._key_re = re.compile(
             rf"{re.escape(self.domain)}:{re.escape(self.version)}:"
-            r"(?P<form>[a-z0-9]+):(?P<digest>[0-9a-f]{32}):"
+            r"(?P<form>[a-z0-9]+):(?P<digest>[0-9a-f]{32}|[0-9a-f]{64}):"
             r"(?P<variant>[a-z0-9]+)")
 
     # ------------------------------------------------------------- building
@@ -140,7 +141,7 @@ class KeyScheme:
         """The store key for one array. Raises on anything it cannot address."""
         digest = str(digest).translate(_ASCII_LOWER)
         if not _DIGEST_RE.fullmatch(digest):
-            raise ValueError(f"not an md5 digest: {digest!r}")
+            raise ValueError(f"not a 32- or 64-digit hex digest: {digest!r}")
         form = self.default_form if form is None else str(form)
         if form not in self.forms:
             raise ValueError(

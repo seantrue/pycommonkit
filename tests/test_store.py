@@ -50,6 +50,17 @@ def test_publish_then_attach_returns_the_same_samples(store):
     assert b.dtype == a.dtype and b.shape == a.shape
 
 
+def test_a_blake3_keyed_array_publishes_attaches_and_removes(store):
+    """A 64-digit digest (contract 3.7) is a key like any other (the reaper: vectors segment_64)."""
+    k = key("cd" * 32)
+    a = _wave()
+    assert store.publish(k, a) is True
+    assert np.array_equal(np.asarray(store.attach(k)), a)
+    assert os.path.basename(store.path_for(k)).startswith("cd" * 32)
+    assert store.remove(k) is True
+    assert store.attach(k) is None
+
+
 def test_attached_arrays_are_read_only_and_stay_that_way(store):
     """mmap_mode='r' makes read-only ENFORCED, not advisory: a caller cannot
     set the flag back, so a shared base cannot be mutated under its readers."""
