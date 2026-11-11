@@ -160,18 +160,19 @@ fn is_shard(name: &str) -> bool {
     name.len() == 2 && name.bytes().all(is_lower_hex)
 }
 
-/// A segment file name in shard directory `shard`: `{shard}[0-9a-f]{30}\.[a-z0-9]+\.npy` in
-/// full (§9.4).
+/// A segment file name in shard directory `shard`: `{shard}` and 30 or 62 more of `[0-9a-f]`
+/// (a 32- or 64-digit digest, §3.4), then `\.[a-z0-9]+\.npy`, in full (§9.4).
 fn is_segment_name(name: &str, shard: &str) -> bool {
     let Some(stem) = name.strip_suffix(".npy") else {
         return false;
     };
-    let (Some(digest), Some(rest)) = (stem.get(..32), stem.get(32..)) else {
+    let Some((digest, variant)) = stem.split_once('.') else {
         return false;
     };
-    digest.bytes().all(is_lower_hex)
+    matches!(digest.len(), 32 | 64)
+        && digest.bytes().all(is_lower_hex)
         && digest.get(..2) == Some(shard)
-        && rest.strip_prefix('.').is_some_and(is_token)
+        && is_token(variant)
 }
 
 /// The refusal of §9.1: an empty root, `/`, or fewer than two path separators (`/tmp` is refused,

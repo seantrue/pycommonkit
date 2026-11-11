@@ -46,11 +46,20 @@ def test_a_closed_variant_axis_refuses_what_it_does_not_know():
         s.key(D1, "o7", "pil")
 
 
-@pytest.mark.parametrize("digest", ["nope", "", "ab" * 15, "zz" * 16])
-def test_anything_that_is_not_an_md5_is_refused(digest):
+@pytest.mark.parametrize("digest", ["nope", "", "ab" * 15, "zz" * 16, "ab" * 24, "ab" * 33])
+def test_anything_that_is_not_a_digest_is_refused(digest):
     s = audio_scheme("dig")
-    with pytest.raises(ValueError, match="md5"):
+    with pytest.raises(ValueError, match="digest"):
         s.key(digest, "sr16000", "wav16k")
+
+
+def test_a_blake3_digest_addresses_a_segment_beside_an_md5_one():
+    s = audio_scheme("dig64")
+    md5, b3 = "ab" * 16, "ab" * 32
+    k32, k64 = s.key(md5, "sr16000", "wav16k"), s.key(b3, "sr16000", "wav16k")
+    assert k32 != k64
+    assert s.parse(k64) == ("wav16k", b3, "sr16000")
+    assert s.relpath(k64) == f"wav16k/ab/{b3}.sr16000.npy"
 
 
 def test_an_upper_case_digest_is_folded_rather_than_refused():

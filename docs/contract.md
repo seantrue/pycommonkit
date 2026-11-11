@@ -83,11 +83,11 @@ A key is an ASCII string of exactly five components separated by `:`:
 ```
 
 - `domain`, `version`, `form` and `variant` are **tokens**: one or more characters from `[a-z0-9]`.
-- `digest` is exactly 32 characters from `[0-9a-f]`.
+- `digest` is exactly 32 or exactly 64 characters from `[0-9a-f]` (§3.7).
 - The whole key MUST match this expression **in full**, with no leading or trailing character of any kind (a final newline included):
 
   ```text
-  [a-z0-9]+:[a-z0-9]+:[a-z0-9]+:[0-9a-f]{32}:[a-z0-9]+
+  [a-z0-9]+:[a-z0-9]+:[a-z0-9]+:([0-9a-f]{32}|[0-9a-f]{64}):[a-z0-9]+
   ```
 
   Python conforms since pycommonkit 0.1.0 (A1): it matches with `fullmatch`. Its patterns used to end in `$`, which also matches before a final `\n`, so a key or token with a trailing newline was accepted (vectors `keys.parse.trailing_newline`, `keys.build.digest_newline`).
@@ -111,7 +111,7 @@ Constructing a scheme from invalid input is a loud path (§1.6): Python raises `
 ### 3.3 Building and parsing
 
 - **Building** a key from a scheme takes a digest, a variant and an optional form (default: the default form).
-  - The digest is first **folded to lower case** (ASCII letters only), then MUST match `[0-9a-f]{32}` in full.
+  - The digest is first **folded to lower case** (ASCII letters only), then MUST match `[0-9a-f]{32}` or `[0-9a-f]{64}` in full.
   - The form MUST be one of the scheme's forms; the variant MUST be valid (§3.2). Variants and forms are never folded.
   - Any failure is a loud path (§1.6).
 - **Parsing** a key against a scheme returns `(form, digest, variant)`. It **never folds**: an upper-case digest is unparseable. The key MUST satisfy the grammar (§3.1), and its domain and version MUST equal the scheme's, its form MUST be one of the scheme's and its variant MUST be valid.
@@ -140,7 +140,7 @@ with `/` as the separator. It is never absolute, and it depends only on the key,
 
 ### 3.7 Digests
 
-The contract names only 32 lower-case hexadecimal digits. Which algorithm produced them (md5 today) is the scheme's business. A domain that changes algorithm MUST use a new domain or version, so that one key never names two contents (W1).
+A digest is 32 or 64 lower-case hexadecimal digits. Which algorithm produced them is the scheme's business: by convention 32 are md5 and 64 are BLAKE3 (added 2026-11-10 for PlumCraft's large arrays, where md5 was the slowest step of a crossing). The two lengths can't be confused, so one scheme may hold keys of both and one key still names one content (W1). Otherwise a domain that changes algorithm MUST use a new domain or version. A reader older than this rule finds a 64-digit key unparseable, which is a miss, never an error (§1.6).
 
 ## 4. Layout
 
@@ -414,7 +414,7 @@ The reaper is the only thing that removes segments. It runs on the publisher's s
 A **candidate** is a regular file (by `lstat`) whose path relative to the root matches, in full:
 
 ```text
-([a-z0-9]+)/([0-9a-f]{2})/(\2[0-9a-f]{30})\.([a-z0-9]+)\.npy
+([a-z0-9]+)/([0-9a-f]{2})/(\2(?:[0-9a-f]{30}|[0-9a-f]{62}))\.([a-z0-9]+)\.npy
 ```
 
 That is, the segment shape of §4 with the shard directory equal to the digest's first two characters. Nothing else under the root is ever unlinked by the reaper except orphaned temporary files (§9.5).

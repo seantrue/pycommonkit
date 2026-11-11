@@ -35,6 +35,7 @@ STEP3 = "step3"
 D1 = "ab" * 16
 D2 = "0123456789abcdef" * 2
 D3 = "fedcba9876543210" * 2
+D64 = "0123456789abcdef" * 4  # a 64-digit (BLAKE3) digest, contract 3.7
 
 # --------------------------------------------------------------------------- arrays
 
@@ -209,7 +210,7 @@ def doc(category: str, about: str, vectors: list, **extra) -> dict:
 # --------------------------------------------------------------------------- keys
 
 #: Contract 3.1: the reader's grammar (C4). Anchored at both ends with no newline allowance.
-GRAMMAR = r"\A[a-z0-9]+:[a-z0-9]+:[a-z0-9]+:[0-9a-f]{32}:[a-z0-9]+\Z"
+GRAMMAR = r"\A[a-z0-9]+:[a-z0-9]+:[a-z0-9]+:(?:[0-9a-f]{32}|[0-9a-f]{64}):[a-z0-9]+\Z"
 
 SCHEMES = {
     "cvkeys": {"domain": "cvkeys", "version": "v1", "forms": ["pil", "f32chw"],
@@ -243,6 +244,10 @@ def keys_doc() -> dict:
       {"key": f"cvkeys:v1:pil:{D2}:o0"})
     b("digest_31", "cvkeys", D1[:31], "o0", "pil", {"error": "digest"})
     b("digest_33", "cvkeys", D1 + "a", "o0", "pil", {"error": "digest"})
+    b("digest_64", "cvkeys", D64, "o0", "pil", {"key": f"cvkeys:v1:pil:{D64}:o0"},
+      note="a 64-digit (BLAKE3) digest is a digest too (contract 3.7)")
+    b("digest_63", "cvkeys", D64[:63], "o0", "pil", {"error": "digest"})
+    b("digest_65", "cvkeys", D64 + "a", "o0", "pil", {"error": "digest"})
     b("digest_nonhex", "cvkeys", "g" + D1[1:], "o0", "pil", {"error": "digest"})
     b("digest_empty", "cvkeys", "", "o0", "pil", {"error": "digest"})
     b("digest_space", "cvkeys", " " + D1, "o0", "pil", {"error": "digest"})
@@ -282,6 +287,8 @@ def keys_doc() -> dict:
     p("upper_domain", f"CVKEYS:v1:pil:{D1}:o0", False, "cvkeys", bad)
     p("digest_31", f"cvkeys:v1:pil:{D1[:31]}:o0", False, "cvkeys", bad)
     p("digest_33", f"cvkeys:v1:pil:{D1}a:o0", False, "cvkeys", bad)
+    p("digest_64", f"cvkeys:v1:pil:{D64}:o0", True, "cvkeys", ok("pil", D64, "o0"))
+    p("digest_63", f"cvkeys:v1:pil:{D64[:63]}:o0", False, "cvkeys", bad)
     p("digest_nonhex", f"cvkeys:v1:pil:{'g' + D1[1:]}:o0", False, "cvkeys", bad)
     p("four_parts", f"cvkeys:v1:{D1}:o0", False, "cvkeys", bad)
     p("six_parts", f"cvkeys:v1:pil:{D1}:o0:x", False, "cvkeys", bad)
@@ -703,6 +710,9 @@ def reaper_doc() -> dict:
     seg = f"pil/ab/{D1}.o0.npy"
     rp("segment", seg, "reaped")
     rp("segment_young", seg, "kept", age_s=60, note="not expired and nothing over target")
+    rp("segment_64", f"pil/01/{D64}.o0.npy", "reaped",
+       note="a 64-digit (BLAKE3) digest's segment is reaped like any other (contract 3.7)")
+    rp("digest_63", f"pil/01/{D64[:63]}.o0.npy", "kept")
     rp("shard_mismatch", f"pil/cd/{D1}.o0.npy", "kept",
        note="C6(a): the shard directory must be the digest's first two characters")
     rp("too_shallow", f"pil/{D1}.o0.npy", "kept")
