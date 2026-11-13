@@ -11,7 +11,10 @@ outcome. Where Python does not yet conform a vector carries ``"python": "step3"`
 ``tests/test_vectors.py`` expects it to fail; since step 3 of the Rust-crate plan
 (pycommonkit 0.1.0) none does.
 
-Only numpy and the standard library are used, so this runs in the package's own venv.
+Only numpy, ``blake3`` (a dependency since 0.2.0) and the standard library are used, so
+this runs in the package's own venv. It calls ``hashlib`` and ``blake3`` directly, by design:
+the digest vectors check ``commonkit.digest``, so they must come from a second
+implementation (contract §3.8, §13.3).
 """
 from __future__ import annotations
 
@@ -24,6 +27,7 @@ import sys
 import warnings
 from pathlib import Path
 
+import blake3
 import numpy as np
 from numpy.lib import format as npf
 
@@ -800,6 +804,15 @@ def env_doc() -> dict:
             if raw != raw.lower() and raw.strip():
                 safe += "_case" + str(sum(c.isupper() for c in raw))
             ev(f"{attr}_{safe}", {P + flag: raw}, {attr: val})
+    # The hash setting (contract §3.8): COMMONKIT_HASH, not COMMONKIT_STORE_HASH (D1).
+    H = "COMMONKIT_HASH"
+    for id_, raw, want in [("hash_unset", None, "b3"), ("hash_md5", "md5", "md5"),
+                           ("hash_b3", "b3", "b3"), ("hash_upper", "MD5", "md5"),
+                           ("hash_padded", " md5\t", "md5"), ("hash_empty", "", "b3"),
+                           ("hash_sha1", "sha1", "b3"), ("hash_blake3", "blake3", "b3")]:
+        ev(id_, {} if raw is None else {H: raw}, {"hash": want})
+    ev("hash_store_prefix_ignored", {P + "HASH": "md5"}, {"hash": "b3"},
+       note="the variable is COMMONKIT_HASH; COMMONKIT_STORE_HASH means nothing")
     ev("root_tilde", {P + "ROOT": "~/ckstore"}, {"root": "{home}/ckstore"})
     ev("root_absolute", {P + "ROOT": "/Volumes/CommonkitStore/store"},
        {"root": "/Volumes/CommonkitStore/store"})
@@ -876,6 +889,20 @@ def policy_doc(w: Writer) -> dict:
     pv("fsync_number", text('{"FSYNC": 1}'), {P + "FSYNC": "0"}, {"fsync": False},
        note="a number is not a flag: left out, the environment says off")
     pv("verify_true", text('{"VERIFY_REPUBLISH": true}'), {}, {"verify_republish": True})
+    H = "COMMONKIT_HASH"
+    pv("hash_file_wins", text('{"HASH": "md5"}'), {H: "b3"},
+       {"hash": "md5", "hash_from": "file"},
+       note="the file beats COMMONKIT_HASH, as for every setting (C7)")
+    pv("hash_file_only", text('{"HASH": "b3"}'), {}, {"hash": "b3", "hash_from": "file"})
+    pv("hash_file_case", text('{"HASH": " MD5 "}'), {}, {"hash": "md5", "hash_from": "file"})
+    pv("hash_env_fills", text('{"TTL_S": 200}'), {H: "md5"},
+       {"hash": "md5", "hash_from": "environment", "ttl_s": 200.0})
+    pv("hash_bad_value", text('{"HASH": "sha256"}'), {H: "md5"},
+       {"hash": "md5", "hash_from": "environment"},
+       note="an unknown algorithm is left out, with a warning, and never raises")
+    pv("hash_not_string", text('{"HASH": 5}'), {}, {"hash": "b3", "hash_from": "default"})
+    pv("hash_bad_file", text('{"HASH": "md5"'), {}, {"hash": "b3", "hash_from": "default"},
+       note="an unparseable file is absent for HASH too")
     pad = '{"TTL_S": 200, "PAD": "' + "x" * 70000 + '"}'
     big = w.file("policy/oversize.policy.json", pad.encode("ascii"))
     pv("oversize", {"file": big}, {P + "TTL_S": "100"}, {"ttl_s": 100.0},
@@ -884,6 +911,70 @@ def policy_doc(w: Writer) -> dict:
        note="a directory named .policy.json is treated as absent")
     return doc("policy", ".policy.json at the store root against the environment (C7). "
                "{root} is the store root", vectors)
+
+
+# --------------------------------------------------------------------------- digests
+
+
+def _algos(data: bytes) -> dict:
+    return {"md5": hashlib.md5(data).hexdigest(), "sha256": hashlib.sha256(data).hexdigest(),
+            "b3": blake3.blake3(data).hexdigest()}
+
+
+def _pattern(n: int) -> bytes:
+    """Bytes too long to inline: byte i is (i * 31) % 251, in both drivers."""
+    return bytes((i * 31) % 251 for i in range(n))
+
+
+def _nd1_input(a: np.ndarray) -> bytes:
+    """PlumCraft's protocol-2 nd1 recipe, written independently of commonkit.digest:
+    big-endian swapped to little, then dtype string, shape repr, C-order bytes."""
+    if a.dtype.byteorder == ">":
+        a = a.byteswap().view(a.dtype.newbyteorder("<"))
+    # Not for a 0-d array: ascontiguousarray returns ndim >= 1, which hashed "(1,)"
+    a = np.ascontiguousarray(a) if a.ndim else a
+    return (a.dtype.str.encode("ascii") + repr(tuple(int(n) for n in a.shape)).encode("ascii")
+            + a.tobytes(order="C"))
+
+
+def digests_doc() -> dict:
+    raw = []
+    for id_, data in [("empty", b""), ("abc", b"abc"), ("byte_00", b"\x00"),
+                      ("text_utf8", "naïve π".encode()), ("all_bytes", bytes(range(256)))]:
+        raw.append({"id": id_, "bytes_hex": data.hex(), **_algos(data)})
+    for id_, n in [("pattern_1mib_plus", (1 << 20) + 17), ("pattern_3mib", 3 << 20)]:
+        raw.append({"id": id_, "pattern": {"len": n}, **_algos(_pattern(n)),
+                    "note": "over 1 MiB, so BLAKE3 hashes on several threads"})
+    nd1 = []
+
+    def nd(id_, dtype, shape, values=None, note=None):
+        dt = np.dtype(dtype)
+        n = int(np.prod(shape)) if shape else 1
+        a = (np.arange(n).astype(dt) if values is None else np.array(values, dtype=dt))
+        a = a.reshape(shape)
+        rec = {"id": id_, "dtype": a.dtype.str, "shape": list(shape),
+               "bytes_hex": a.tobytes(order="C").hex(), **_algos(_nd1_input(a))}
+        if note:
+            rec["note"] = note
+        nd1.append(rec)
+
+    nd("f4_le", "<f4", [2, 3])
+    nd("f4_be", ">f4", [2, 3], note="normalised to <f4 and swapped: the same content as f4_le")
+    nd("u1_rgba", "|u1", [1, 2, 4])
+    nd("f8_scalar", "<f8", [], values=3.5, note="shape () hashes as '()'")
+    nd("i2_one", "<i2", [1], note="shape (1,) keeps the trailing comma")
+    nd("c8_be", ">c8", [3], note="complex swaps each half: unit 4")
+    nd("u3_text", "<U3", [2], values=["ab", "xyz"])
+    nd("s5_bytes", "|S5", [2], values=[b"hello", b"x"])
+    nd("m8_ns", "<M8[ns]", [2], values=[0, 10 ** 9])
+    nd("b1_bool", "|b1", [4], values=[True, False, True, True])
+    nd("empty_2d", "<f4", [0, 3], note="no elements: dtype and shape alone")
+    nd("i8_be_big", ">i8", [64, 32], note="a 16 KiB big-endian array")
+    return doc("digests", "The hashing facade (contract §3.8): `raw` and `nd1` digests in md5, "
+               "b3 and fixed sha256, computed with hashlib and blake3 directly. `bytes_hex` is "
+               "the input (for nd1, the array's C-order bytes as numpy holds them, before any "
+               "swap); `pattern.len` names bytes (i * 31) % 251. `build::both` of an input is "
+               "its md5 and b3 here", [], raw=raw, nd1=nd1)
 
 
 # --------------------------------------------------------------------------- main
@@ -900,6 +991,7 @@ def main() -> int:
     w.json("reaper_paths.json", reaper_doc())
     w.json("env.json", env_doc())
     w.json("policy.json", policy_doc(w))
+    w.json("digests.json", digests_doc())
     print(f"wrote {w.bytes} bytes under {OUT.relative_to(HERE.parent)}", file=sys.stderr)
     if w.bytes > 512 * 1024:
         print("fixtures exceed 512 KiB; keep them small", file=sys.stderr)

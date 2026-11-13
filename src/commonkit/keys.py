@@ -67,7 +67,7 @@ class KeyScheme:
     """
 
     def __init__(self, domain: str, version: str, forms: Iterable[str],
-                 variants, dtypes: dict[str, str] | None = None):
+                 variants, dtypes: dict[str, str] | None = None, digest: str | None = None):
         for name, value in (("domain", domain), ("version", version)):
             if not _TOKEN_RE.fullmatch(str(value)):
                 raise ValueError(f"{name} must be [a-z0-9]+, got {value!r}")
@@ -108,6 +108,16 @@ class KeyScheme:
         for form in self.dtypes:
             if form not in self.forms:
                 raise ValueError(f"{self.domain}: dtype for unknown form {form!r}")
+
+        # The digest rule (contract §3.7, D3 (a)): ``"current"`` means the scheme holds only
+        # keys of the process's algorithm's length, and the store declines the other one
+        # (``shm_foreign_digest``). None, the default, is the rule-free scheme every
+        # domain had before: both lengths, and the store never asks which algorithm is
+        # current. alexandria's ``pixels`` declares none.
+        if digest not in (None, "current"):
+            raise ValueError(f"{self.domain}: digest rule must be None or 'current', "
+                             f"got {digest!r}")
+        self.digest = digest
 
         self._key_re = re.compile(
             rf"{re.escape(self.domain)}:{re.escape(self.version)}:"
@@ -202,7 +212,8 @@ def register(scheme: KeyScheme) -> KeyScheme:
                 # unlike forms, whose first is the default.
                 and set(prior.variants) == set(scheme.variants)
                 and prior.variant_pattern == scheme.variant_pattern
-                and prior.dtypes == scheme.dtypes)
+                and prior.dtypes == scheme.dtypes
+                and prior.digest == scheme.digest)
         if not same:
             raise ValueError(
                 f"two disagreeing schemes for domain {scheme.domain!r}")

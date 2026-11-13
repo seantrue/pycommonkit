@@ -143,12 +143,21 @@ fn admission() {
                 ..Options::default()
             },
         );
+        // A bad key on purpose leaves its marker in a scratch folder, not the run's (§11).
+        let marks = tempfile::tempdir().unwrap();
+        let store = store.with_mark_dir(marks.path());
         if let Some(usage) = v.get("usage") {
             std::fs::write(dir.path().join(".usage.json"), usage.to_string()).unwrap();
         }
         let arr = Arr::from_spec(spec);
         let ok = store.publish(str_of(&v["key"]), arr.r()).unwrap();
         assert_eq!(ok, str_of(&exp["outcome"]) == "published", "{id}");
+        let bad = marks
+            .path()
+            .join(format!("{}.shm_bad_key", std::process::id()));
+        if str_of(&exp["outcome"]) == "bad_key" {
+            assert!(bad.exists(), "{id}: no marker");
+        }
         assert_eq!(
             counters(&store),
             expected_counters(&exp["counters"]),
@@ -276,6 +285,29 @@ fn placeholders(text: &str, root: &Path) -> PathBuf {
     std::path::absolute(&p).unwrap_or(p)
 }
 
+/// `hash` and `hash_from` (contract §3.8), from the pure resolution: the process's own is
+/// resolved once and can't be re-read per vector.
+fn check_hash(id: &str, root: &Path, env: &dyn Fn(&str) -> Option<OsString>, expect: &Value) {
+    let Some(want) = expect.get("hash") else {
+        return;
+    };
+    let path = root.join(".policy.json");
+    let (algo, source, _warnings) = policy::resolve_hash(&policy::read_policy(root), &path, env);
+    assert_eq!(algo.name(), str_of(want), "{id} hash");
+    if let Some(from) = expect.get("hash_from") {
+        let got = match source {
+            policy::Source::File(p) => {
+                assert_eq!(p, path, "{id}");
+                "file"
+            }
+            policy::Source::Env => "environment",
+            policy::Source::Default => "default",
+            _ => "other",
+        };
+        assert_eq!(got, str_of(from), "{id} hash_from");
+    }
+}
+
 /// Check the effective store fields a vector names. `root` is checked by the caller.
 fn check_fields(id: &str, o: &Options, expect: &Value, defaults: &Value) {
     for (field, want) in expect.as_object().unwrap() {
@@ -285,7 +317,7 @@ fn check_fields(id: &str, o: &Options, expect: &Value, defaults: &Value) {
             want
         };
         match field.as_str() {
-            "root" => {}
+            "root" | "hash" | "hash_from" => {}
             "max_bytes" => assert_eq!(o.max_bytes, want.as_i64().unwrap(), "{id} {field}"),
             "min_free_bytes" => {
                 assert_eq!(o.min_free_bytes, want.as_i64().unwrap(), "{id} {field}")
@@ -324,6 +356,7 @@ fn env() {
         );
         assert!(!store.is_disabled(), "{id}");
         check_fields(id, store.options(), &v["expect"], &defaults);
+        check_hash(id, dir.path(), &env, &v["expect"]);
         if let Some(want) = v["expect"].get("root") {
             let want = match want {
                 Value::Object(per) => match per.get(platform()) {
@@ -373,6 +406,7 @@ fn policy_file() {
             Policy::for_root(dir.path(), &env).options(Mode::Read, AttachMode::Mmap, 0),
         );
         check_fields(id, store.options(), &v["expect"], &defaults);
+        check_hash(id, dir.path(), &env, &v["expect"]);
         if let Some(want) = v["expect"].get("root") {
             assert_eq!(store.root(), placeholders(str_of(want), dir.path()), "{id}");
         }

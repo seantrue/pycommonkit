@@ -5,7 +5,9 @@ speak the same JSON.
 Every case runs in both directions. ``ck-conform`` is built with ``cargo build`` once per
 session; without cargo the module skips (CI's ``conformance`` job always has it). The
 drivers run with ``verify_republish`` on and every ``COMMONKIT_STORE_*`` variable removed,
-so the developer's own policy (thresher's points at a live tree) never reaches a test.
+so the developer's own policy (thresher's points at a live tree) never reaches a test. They
+keep the run's ``COMMONKIT_HASH``; only the policy vectors, whose ``env`` is the whole
+environment, clear it (:func:`vector_env`).
 """
 from __future__ import annotations
 
@@ -55,9 +57,24 @@ def ck_bin():
 
 
 def clean_env(extra=None):
+    """The drivers' environment: no ``COMMONKIT_STORE_*``, and the run's ``COMMONKIT_HASH``
+    passed through, so every driver hashes with the pass's algorithm and its ``.started``
+    names it (``each_algo.sh`` fails on one that doesn't). A ``None`` in ``extra`` removes."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("COMMONKIT_STORE_")}
-    env.update(extra or {})
+    for k, v in (extra or {}).items():
+        if v is None:
+            env.pop(k, None)
+        else:
+            env[k] = v
     return env
+
+
+def vector_env(vector_env, tmp_path):
+    """For a vector whose ``env`` is the whole environment its setting sees: the run's
+    ``COMMONKIT_HASH`` cleared, and markers sent to a scratch folder, so a driver resolving
+    the default is a visible waiver here, not a ``.started`` in the run."""
+    return {"COMMONKIT_HASH": None, "COMMONKIT_MARK_DIR": str(tmp_path / "scratch-marks"),
+            **vector_env}
 
 
 class Drivers:
@@ -546,9 +563,40 @@ def test_policy_is_read_the_same_by_both(ck, tmp_path, v):
         shutil.copyfile(VECTORS / pf["file"], target)
     else:
         target.mkdir()
-    py = ck.run("py", "policy", {"root": str(root)}, env=v["env"])
-    rs = ck.run("rs", "policy", {"root": str(root)}, env=v["env"])
+    env = vector_env(v["env"], tmp_path)
+    py = ck.run("py", "policy", {"root": str(root)}, env=env)
+    rs = ck.run("rs", "policy", {"root": str(root)}, env=env)
     assert py == rs
     for k, want in v.get("expect", {}).items():
         if k in py and want != "default":
             assert py[k] == want, k
+
+
+# ------------------------------------------------------------------------------ digests
+
+DIGEST_ARRAYS = [arr("|u1", (1000,)), arr("<f4", (7, 5)), arr(">f4", (7, 5)), arr(">c8", (9,)),
+                 arr("<i8", ()), arr("<U3", (4,)), arr("<M8[ns]", (3,)), arr("|b1", (5,)),
+                 arr(">u2", (0, 4))]
+
+
+@pytest.mark.parametrize("algo", ["md5", "b3"])
+def test_digests_agree_across_languages(ck, tmp_path, algo):
+    """``raw`` and ``nd1`` in each algorithm and in ``fixed``, both drivers, one process per
+    algorithm (contract §3.8), including a 64 MiB input that BLAKE3 hashes on many threads."""
+    root = tmp_path / f"root-{algo}"
+    root.mkdir()
+    env = {"COMMONKIT_STORE_ROOT": str(root), "COMMONKIT_HASH": algo}
+    ops = []
+    for spec in DIGEST_ARRAYS:
+        for op in ("raw", "nd1"):
+            for fixed in (None, "md5", "sha256"):
+                ops.append({"cmd": "digest", "op": op, "array": spec,
+                            **({"fixed": fixed} if fixed else {})})
+    ops.append({"cmd": "digest", "op": "raw", "pattern_len": 64 * 2**20})
+    ops.append({"cmd": "digest", "op": "nd1", "pattern_len": 64 * 2**20 + 3})
+    py = ck.run("py", "batch", ops, env=env)
+    rs = ck.run("rs", "batch", ops, env=env)
+    assert py == rs
+    assert {r["algo"] for r in py} == {algo}
+    want = {"md5": 32, "b3": 64}[algo]
+    assert all(len(r["digest"]) == want for r, op in zip(py, ops) if "fixed" not in op)

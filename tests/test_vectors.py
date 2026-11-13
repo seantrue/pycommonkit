@@ -31,9 +31,11 @@ import pytest
 from numpy.lib import format as npf
 
 from commonkit import keys as ck_keys
+from commonkit import policy as ck_policy
 from commonkit import shared as ck_shared
 from commonkit.keys import KeyScheme
 from commonkit.store import SharedArrayStore
+from commonkit.testing import expect_marks
 
 ROOT = Path(__file__).resolve().parent.parent
 VEC = ROOT / "conformance" / "vectors"
@@ -223,8 +225,10 @@ def test_admission(v, tmp_path, adm_scheme):
                              reap_interval_s=1e12)
     if "usage" in v:
         (tmp_path / ".usage.json").write_text(json.dumps(v["usage"]))
-    ok = store.publish(v["key"], GEN.make_array(v["array"]))
     exp = v["expect"]
+    # A bad key on purpose leaves its marker in a scratch folder, not the run's (§11).
+    with expect_marks(store, ["shm_bad_key"] if exp["outcome"] == "bad_key" else []):
+        ok = store.publish(v["key"], GEN.make_array(v["array"]))
     assert ok is (exp["outcome"] == "published")
     assert nonzero(store.drain_stats()) == exp["counters"]
     assert not list(tmp_path.rglob("*.tmp")), "a declined publish leaves no temporary file"
@@ -329,9 +333,22 @@ PLATFORM = {"darwin": "darwin", "linux": "linux", "win32": "windows"}.get(sys.pl
 @pytest.fixture
 def clean_env(monkeypatch):
     for name in list(os.environ):
-        if name.startswith(ENV_PREFIX):
+        if name.startswith(ENV_PREFIX) or name == ck_policy.HASH_ENV:
             monkeypatch.delenv(name)
     return monkeypatch
+
+
+def _check_hash(expect: dict, root: str) -> None:
+    """``hash`` and ``hash_from`` (contract §3.8), from the pure resolution: the process's
+    own is resolved once and can't be re-read per vector."""
+    if "hash" not in expect:
+        return
+    algo, source, _w = ck_policy.resolve_hash(ck_shared.read_policy(root), os.environ,
+                                              os.path.join(root, ".policy.json"))
+    assert algo == expect.pop("hash")
+    if "hash_from" in expect:
+        assert source.split(" ")[0] == {"file": "policy", "environment": "environment",
+                                        "default": "default"}[expect.pop("hash_from")]
 
 
 def _placeholders(text: str, root: str) -> str:
@@ -363,6 +380,7 @@ def test_env(v, tmp_path, clean_env):
         clean_env.setenv(name, value)
     defaults = ENV["defaults"].get(PLATFORM, ENV["defaults"]["linux"])
     expect = dict(v["expect"])
+    _check_hash(expect, str(tmp_path))
     root_want = expect.pop("root", None)
     if expect:
         store = ck_shared.shared_store(root=str(tmp_path), mode="read")
@@ -386,7 +404,9 @@ def test_policy_file(v, tmp_path, clean_env):
             target.mkdir()
     store = ck_shared.shared_store(root=str(tmp_path), mode="read")
     defaults = ENV["defaults"].get(PLATFORM, ENV["defaults"]["linux"])
-    _check_fields(store, v["expect"], defaults, os.path.abspath(str(tmp_path)))
+    expect = dict(v["expect"])
+    _check_hash(expect, str(tmp_path))
+    _check_fields(store, expect, defaults, os.path.abspath(str(tmp_path)))
 
 
 def test_vectors_are_reproducible_and_small():

@@ -1,8 +1,26 @@
 # Status
 
-*Updated 2026-11-10.*
+*Updated 2026-11-12.*
 
 ## Where things stand
+
+- **0.2.0, the hashing facade (2026-11-12, branch `feat/hash-facade`, not merged or released).** Layer 0 of plum's plan `2026-11-12-commonkit-hash-facade` (the maintainer: "Go L0."). One system-wide hash switch for the virtimp stack, in commonkit, so no caller uses a hash library directly (D19):
+  - `commonkit.digest` / `commonkit::digest` (feature `digest`): `raw`, `Hasher`, `nd1` (PlumCraft's protocol-2 recipe), `file`, `fixed` (md5, SHA-256) and `build` (both, for build scripts); contract §3.8.
+  - The switch: `HASH` in `.policy.json`, then `COMMONKIT_HASH`, then BLAKE3; resolved once per process (`policy.hash_algo()` / `policy::current()`), announced as `commonkit: hash <algo> (<source>)` on stderr. Python's policy reader moved to `commonkit.policy`; `shared` re-exports it.
+  - The per-scheme digest rule (§3.7): `digest="current"` / `DigestRule::Current` declines and misses the other length as `shm_foreign_digest`. Schemes without it, alexandria's `pixels` among them, are unchanged; the store never hashes a caller's key, and nothing the store imports reaches hashing code (tests in both languages).
+  - Marker files under `COMMONKIT_MARK_DIR` (§11); `testing` helpers (`assert_isolated` against `COMMONKIT_TEST_RUN`, `fresh_root`, `expect_marks`, `Store::with_mark_dir`); `commonkit.scan` for a tree's rule forms.
+  - `digests.json` vectors, and `HASH` cases in `env.json` and `policy.json`; the `digest` command in both conformance drivers, compared across languages under each algorithm, including a 64 MiB input.
+  - `blake3` is a hard dependency of pyuncommonkit, imported lazily: the recorded exception to "numpy only" (D6). The wheel check for 3.11–3.14 on all OSes (plan step 0a) is still to do before the release.
+  - **Fixes from plum's L0 implementation review** (findings 1–9, 11, 12) **and its recheck** (A–E):
+    - The self dev-dependency takes `default-features = false`, so `--no-default-features` test and clippy runs really build without `mmap`.
+    - The first resolution's stderr line can't panic (Rust `writeln!`) or raise (Python catches `OSError`/`ValueError`).
+    - With no root, no `.policy.json` is read; before, Rust read the working directory's. The tests go through the resolution itself (Rust `resolve_process`, Python `hash_algo()`), and the helpers are private.
+    - `assert_isolated` raises `AssertionError` itself, so `python -O` keeps it.
+    - Python's `digest.Hasher` takes no algorithm; a named one is `fixed.Hasher` only. Rust's `Hasher::new()` never took one.
+    - Rust markers are 0600, as Python's. Tests in both languages fail if markers stop being first-event-only, or written once, or private (each checked by removing the seen-set, the exclusive create or the mode).
+    - `each_algo.sh` also fails unless every `<pid>.started` names the algorithm, and there is at least one (the recheck's finding A). The conformance drivers now keep the run's `COMMONKIT_HASH`; only the policy vectors clear it, with their markers in a scratch folder; CI's vectors step also catches untracked files; `[package.metadata.docs.rs]` builds `digest` and `testing`.
+    - README and `CLAUDE.md` now say the guard fails one test, not that it stops the suite.
+  - **Mac, under md5 and under b3, each on a fresh run folder:** 705 Python passed, 193 Rust passed (184 for `-p commonkit`), with and without default features and with all features; ruff, clippy (all features, no default features, the store alone) and fmt clean; docs build with `digest` and `testing`; the vectors regenerate byte for byte; `cargo package` verifies.
 
 - **0.1.2 (2026-11-10): `commonkit` and `pyuncommonkit`,** carrying the 64-digit digests below, for PlumCraft's B10. Tags `commonkit-v0.1.2` and `pyuncommonkit-v0.1.2`.
 - **64-digit (BLAKE3) digests (2026-11-10, PR #17).** For PlumCraft's B10 (slow hashing of large arrays). A key's digest may be 32 or 64 lower-case hex digits, in the contract (§3.7), both languages, the reaper and the vectors. Old readers see a 64-digit key as a miss. Released in 0.1.2.

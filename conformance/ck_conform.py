@@ -26,7 +26,10 @@ JSON on stdout; ``hold`` prints two. Commands:
 * ``plan``: ``root``, ``now``, ``budget_s`` -> a dry run with the tree's own policy
   (``.policy.json``, then the environment), constructing no store, so nothing is written.
 * ``usage``: ``store`` -> ``usage``: ``{"bytes", "files"}`` or null.
-* ``policy``: ``root`` -> the effective tree-wide settings.
+* ``policy``: ``root`` -> the effective tree-wide settings, and ``hash`` (contract §3.8).
+* ``digest``: ``op`` (``raw`` or ``nd1``) of an ``array`` spec (C order; for ``raw`` its
+  payload) or of ``pattern_len`` bytes ``(i * 31) % 251``, in the process's algorithm, or in
+  ``fixed`` (``md5``, ``sha256``) when given -> ``algo``, ``digest``.
 
 Every command but ``plan`` and ``policy`` also returns ``stats``: the counters it moved.
 Any command takes ``start_at`` (Unix seconds) to start together with other processes.
@@ -52,6 +55,8 @@ from generate import _fill, spec_dtype
 
 import commonkit.store as cks
 from commonkit import KeyCollision, KeyScheme, SharedArrayStore, register
+from commonkit import digest as ckd
+from commonkit import policy as ckp
 from commonkit import shared as cksh
 
 #: The conformance scheme, registered identically by both drivers.
@@ -176,7 +181,9 @@ def _policy(root) -> dict:
     def get(name):
         return cksh.setting(name, policy)
 
-    return {"max_bytes": int(get("MAX_GB") * 2**30),
+    algo, _source, _w = ckp.resolve_hash(policy, os.environ,
+                                         os.path.join(root, ckp.POLICY_FILE))
+    return {"hash": algo, "max_bytes": int(get("MAX_GB") * 2**30),
             "min_free_bytes": int(get("MIN_FREE_GB") * 2**30),
             "ttl_s": float(get("TTL_S")), "reap_interval_s": float(get("REAP_S")),
             "max_array_bytes": int(get("MAX_ARRAY_BYTES")), "fsync": bool(get("FSYNC")),
@@ -203,7 +210,24 @@ def cmd_usage(args):
     return {"usage": out, "stats": _stats(store)}
 
 
-COMMANDS = {"publish": cmd_publish, "remove": cmd_remove, "attach": cmd_attach, "hold": cmd_hold,
+def cmd_digest(args):
+    if "pattern_len" in args:
+        n = args["pattern_len"]
+        a = (np.arange(n, dtype=np.uint64) * 31 % 251).astype(np.uint8)
+    else:
+        if args["array"].get("order", "C") != "C":
+            raise ValueError("digest takes C-order arrays")
+        a = _array(args["array"])
+    f = args.get("fixed")
+    if args["op"] == "raw":
+        b = a.tobytes(order="C")
+        d = ckd.raw(b) if f is None else ckd.fixed.raw(f, b)
+    else:
+        d = ckd.nd1(a) if f is None else ckd.fixed.nd1(f, a)
+    return {"algo": ckd.current(), "digest": d}
+
+
+COMMANDS = {"digest": cmd_digest, "publish": cmd_publish, "remove": cmd_remove, "attach": cmd_attach, "hold": cmd_hold,
             "reap": cmd_reap, "plan": cmd_plan, "usage": cmd_usage, "policy": cmd_policy}
 
 

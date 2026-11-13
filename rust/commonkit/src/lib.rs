@@ -44,19 +44,24 @@ struct ReadmeDoctests;
 /// The on-disk contract version this crate implements (contract §1.1).
 pub const CONTRACT_VERSION: u32 = 1;
 
+#[cfg(feature = "digest")]
+pub mod digest;
 mod json;
 pub mod keys;
 #[cfg(feature = "mmap")]
 mod map;
+mod marks;
 pub mod npy;
 pub mod policy;
 pub mod segment;
 pub mod store;
 mod sys;
+#[cfg(feature = "testing")]
+pub mod testing;
 
-pub use keys::{Key, KeyError, KeyScheme, Registry, Variants};
+pub use keys::{DigestRule, Key, KeyError, KeyScheme, Registry, Variants};
 pub use npy::{Descr, Order};
-pub use policy::{Policy, shared_store, shared_store_at};
+pub use policy::{Algo, Policy, shared_store, shared_store_at};
 pub use segment::{AttachMode, Element, Scalar, Segment};
 pub use store::{
     ArrayRef, Counter, KeyCollision, Mode, Options, ReapOptions, ReapReport, Stats, Store, Usage,

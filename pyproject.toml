@@ -1,6 +1,6 @@
 [project]
 name = "pyuncommonkit"
-version = "0.1.2"
+version = "0.2.0"
 description = "Named shared-memory segments for numpy arrays: publish once, attach from any process."
 readme = "README.md"
 authors = [
@@ -13,6 +13,10 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",
+    # The hashing facade's BLAKE3 (commonkit.digest), the one exception to "numpy only"
+    # (D6): a hard dependency, imported lazily on the first BLAKE3 digest, so the store and
+    # anything that never hashes never loads it.
+    "blake3>=1.0",
 ]
 keywords = ["numpy", "npy", "mmap", "shared-memory", "cache"]
 # No License :: classifier: PEP 639's `license` expression replaces it. Linux and macOS only:
@@ -60,3 +64,17 @@ module-name = "commonkit"
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
+# The default rules, plus the hashing ban (D10): only the facade (src/commonkit/digest.py)
+# and the second implementation that checks it (conformance/, tests/) may hash directly.
+extend-select = ["TID251"]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"hashlib".msg = "hash through commonkit.digest (D19); fixed algorithms through digest.fixed"
+"blake3".msg = "hash through commonkit.digest (D19)"
+
+[tool.ruff.lint.per-file-ignores]
+"src/commonkit/digest.py" = ["TID251"]
+"conformance/*" = ["TID251"]
+"tests/*" = ["TID251"]

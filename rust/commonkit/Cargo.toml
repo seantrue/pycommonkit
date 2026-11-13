@@ -1,6 +1,6 @@
 [package]
 name = "commonkit"
-version = "0.1.2"
+version = "0.2.0"
 description = "Named shared-memory segments for numpy .npy arrays: publish once, map from any process (the Rust side of pycommonkit)"
 edition.workspace = true
 rust-version.workspace = true
@@ -18,12 +18,25 @@ exclude = ["tests/"]
 # the crate without `license-file`, which conflicts with `license`); tests/license.rs keeps the
 # two identical.
 
+# docs.rs builds the default features only, which would leave out `digest` (the main API of
+# 0.2.0) and `testing`.
+[package.metadata.docs.rs]
+features = ["digest", "testing"]
+
 [features]
 default = ["mmap"]
 # Read-only mapping of segments (memmap2), the crate's only `unsafe`, in `src/map.rs` (plan 7.2).
 # Without it no `unsafe` is compiled and attach copies instead (C5: on by default, and PlumCraft
 # keeps it on).
 mmap = ["dep:memmap2"]
+# The hashing facade, `commonkit::digest` (contract §3.8): md5, BLAKE3 (on several threads for
+# large inputs) and SHA-256 for `fixed`. Off by default, so the store, which never hashes
+# anything (the alexandria constraint), builds with no hash crate at all
+# (tests/store_no_hash.rs). Adopters ask for it: `features = ["digest"]`.
+digest = ["dep:md-5", "dep:blake3", "dep:sha2"]
+# Test helpers for every suite that uses commonkit (D25 E): `testing::assert_isolated`,
+# `testing::fresh_root` and `Store::with_mark_dir`. Not for production code.
+testing = []
 
 [dependencies]
 # Variant patterns (contract §3.2). Its syntax has no backreferences or look-around, which is
@@ -36,6 +49,12 @@ memmap2 = { version = "0.9", optional = true }
 bytemuck = "1.14"
 # The key-collision report (contract §6.4: "log at error level"). MIT OR Apache-2.0.
 log = "0.4"
+
+# The hashing facade (feature `digest`), in src/digest.rs only. md-5: MIT OR Apache-2.0;
+# blake3: CC0-1.0 OR Apache-2.0 OR Apache-2.0 WITH LLVM-exception; sha2: MIT OR Apache-2.0.
+md-5 = { version = "0.10", optional = true }
+blake3 = { version = "1.5", optional = true, features = ["rayon"] }
+sha2 = { version = "0.10", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 # Safe syscalls with no `unsafe` here: statvfs for free space (contract §9.9), F_FULLFSYNC on
@@ -50,6 +69,12 @@ fs4 = { version = "1", default-features = false, features = ["sync"] }
 
 [dev-dependencies]
 # Tests read conformance/vectors/*.json and check fixture digests.
+# The crate itself, with the facade and the test helpers, so every test binary has them
+# whether cargo is run here or at the workspace root (`cargo test -p commonkit` in CI's msrv
+# job would otherwise skip them). Dev-only: the published crate's features are unchanged.
+# `default-features = false`, or the dev-dependency would ask for `default` and turn `mmap` back
+# on in every test build, so `cargo test --no-default-features` would not test the no-mmap build.
+commonkit = { path = ".", default-features = false, features = ["digest", "testing"] }
 serde_json = "1"
 sha2 = "0.10"
 tempfile = "3"

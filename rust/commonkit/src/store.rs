@@ -19,7 +19,8 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::json::{self, Json};
-use crate::keys::{Key, Registry};
+use crate::keys::{DigestRule, Key, Registry};
+use crate::marks;
 use crate::npy::{self, Descr, Header, NpyError, Order};
 use crate::segment::{self, AttachMode, Load, Segment};
 use crate::sys;
@@ -118,6 +119,8 @@ pub enum Counter {
     Miss,
     Torn,
     BadKey,
+    /// A key of the other algorithm's length in a scheme with a digest rule (§3.7).
+    ForeignDigest,
     TornReplaced,
     KeyCollision,
     DeclinedMode,
@@ -139,11 +142,12 @@ pub enum Counter {
 }
 
 impl Counter {
-    pub const ALL: [Counter; 22] = [
+    pub const ALL: [Counter; 23] = [
         Counter::Hit,
         Counter::Miss,
         Counter::Torn,
         Counter::BadKey,
+        Counter::ForeignDigest,
         Counter::TornReplaced,
         Counter::KeyCollision,
         Counter::DeclinedMode,
@@ -171,6 +175,7 @@ impl Counter {
             Counter::Miss => "shm_miss",
             Counter::Torn => "shm_torn",
             Counter::BadKey => "shm_bad_key",
+            Counter::ForeignDigest => "shm_foreign_digest",
             Counter::TornReplaced => "shm_torn_replaced",
             Counter::KeyCollision => "shm_key_collision",
             Counter::DeclinedMode => "shm_declined_mode",
@@ -372,6 +377,8 @@ pub struct Store {
     /// When the last reap turn ran, in Unix seconds; 0.0 at first, as in Python.
     last_reap: Mutex<f64>,
     hooks: Hooks,
+    /// Where declined keys leave their markers (contract §11); `None` in production.
+    mark_dir: Option<PathBuf>,
 }
 
 impl fmt::Debug for Store {
@@ -447,7 +454,11 @@ impl Store {
             free: Mutex::new((0.0, 0)),
             last_reap: Mutex::new(0.0),
             hooks: Hooks::default(),
+            mark_dir: marks::from_env(),
         };
+        if let Some(dir) = &store.mark_dir {
+            marks::started(dir, &store.root);
+        }
         let Some(root) = root else {
             return store;
         };
@@ -479,7 +490,18 @@ impl Store {
             free: Mutex::new((0.0, 0)),
             last_reap: Mutex::new(0.0),
             hooks: Hooks::default(),
+            mark_dir: None,
         }
+    }
+
+    /// Send this store's markers to `dir` instead of `COMMONKIT_MARK_DIR`, for tests that
+    /// publish or attach a bad or foreign key on purpose (contract §11).
+    #[cfg(feature = "testing")]
+    pub fn with_mark_dir(mut self, dir: impl AsRef<Path>) -> Store {
+        let dir = dir.as_ref().to_path_buf();
+        marks::started(&dir, &self.root);
+        self.mark_dir = Some(dir);
+        self
     }
 
     /// Install test hooks. Not part of the API.
@@ -525,6 +547,28 @@ impl Store {
         }
     }
 
+    /// Count `c` once and leave its marker: the first per mark folder and process (§11).
+    fn mark(&self, c: Counter, key: &str) {
+        self.count(c, 1);
+        if let Some(dir) = &self.mark_dir {
+            marks::event(dir, c.name(), key, &self.root);
+        }
+    }
+
+    /// Whether a grammatical key belongs to a registered scheme with the digest rule and has
+    /// the other algorithm's length (contract §3.7). Compares a length; never hashes. A
+    /// scheme with no rule never asks which algorithm is current.
+    fn foreign(&self, k: &Key) -> bool {
+        match Registry::global().get(k.domain()) {
+            Some(s)
+                if s.version() == k.version() && s.digest_rule() == Some(DigestRule::Current) =>
+            {
+                k.digest().len() != crate::policy::current().hex_len()
+            }
+            _ => false,
+        }
+    }
+
     /// Take and reset the counters (contract §11), each read and zeroed atomically.
     pub fn drain_stats(&self) -> Stats {
         let mut out = BTreeMap::new();
@@ -545,10 +589,15 @@ impl Store {
         if self.disabled {
             return None;
         }
-        let Some(path) = self.path_for(key) else {
-            self.count(Counter::BadKey, 1);
+        let Ok(k) = Key::parse(key) else {
+            self.mark(Counter::BadKey, key);
             return None;
         };
+        if self.foreign(&k) {
+            self.mark(Counter::ForeignDigest, key);
+            return None;
+        }
+        let path = self.root.join(k.relpath_buf());
         match segment::load(&path, self.options.attach) {
             Load::Absent => {
                 self.count(Counter::Miss, 1);
@@ -594,7 +643,7 @@ impl Store {
             return false;
         }
         let Ok(k) = Registry::global().parse(key) else {
-            self.count(Counter::BadKey, 1);
+            self.mark(Counter::BadKey, key);
             return false;
         };
         let path = self.root.join(k.relpath_buf());
@@ -638,9 +687,14 @@ impl Store {
         };
         // Gate 7: a publisher validates against the registered scheme (C4).
         let Ok(k) = Registry::global().parse(key) else {
-            self.count(Counter::BadKey, 1);
+            self.mark(Counter::BadKey, key);
             return Ok(false);
         };
+        // Gate 8: a rule scheme holds only the current algorithm's length (§3.7).
+        if self.foreign(&k) {
+            self.mark(Counter::ForeignDigest, key);
+            return Ok(false);
+        }
         let path = self.root.join(k.relpath_buf());
 
         let existing = self.existing(key, &path, &array)?;
@@ -1054,12 +1108,12 @@ mod tests {
     #[test]
     fn counter_names_are_the_contracts() {
         let names: Vec<_> = Counter::ALL.iter().map(|c| c.name()).collect();
-        assert_eq!(names.len(), 22);
+        assert_eq!(names.len(), 23);
         let mut sorted = names.clone();
         sorted.sort_unstable();
         sorted.dedup();
-        assert_eq!(sorted.len(), 22);
+        assert_eq!(sorted.len(), 23);
         assert!(names.iter().all(|n| n.starts_with("shm_")));
-        assert_eq!(Counter::ALL.iter().map(|c| c.index()).sum::<usize>(), 231);
+        assert_eq!(Counter::ALL.iter().map(|c| c.index()).sum::<usize>(), 253);
     }
 }

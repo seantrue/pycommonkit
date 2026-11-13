@@ -461,3 +461,39 @@ fn dry_runs_plan_the_same_in_both_languages() {
     let swept: BTreeSet<_> = rel(&plan.sweep).into_iter().collect();
     assert_eq!(swept, BTreeSet::from(["raw/00/x.npy.1.2.tmp".to_owned()]));
 }
+
+/// The hashing facade agrees with Python's in this process's algorithm, for `raw` and `nd1`
+/// and in `fixed`, including a 64 MiB input BLAKE3 hashes on several threads (contract §3.8).
+#[test]
+fn digests_agree_with_python() {
+    use commonkit::digest::{self, fixed};
+    let specs = [
+        json!({"descr": "|u1", "shape": [1000], "order": "C", "fill": "ramp"}),
+        json!({"descr": ">f4", "shape": [7, 5], "order": "C", "fill": "ramp"}),
+        json!({"descr": "<M8[ns]", "shape": [3], "order": "C", "fill": "ramp"}),
+        json!({"descr": "<i8", "shape": [], "order": "C", "fill": "ramp"}),
+    ];
+    let mut ops = Vec::new();
+    let mut want = Vec::new();
+    for spec in &specs {
+        let a = Array::from_spec(spec).unwrap();
+        let dt = a.descr.as_simple().unwrap().to_string();
+        ops.push(json!({"cmd": "digest", "op": "raw", "array": spec}));
+        want.push(digest::raw(&a.data));
+        ops.push(json!({"cmd": "digest", "op": "nd1", "array": spec}));
+        want.push(digest::nd1(&dt, &a.shape, &a.data).unwrap());
+        ops.push(json!({"cmd": "digest", "op": "nd1", "array": spec, "fixed": "md5"}));
+        want.push(fixed::nd1(fixed::Fixed::Md5, &dt, &a.shape, &a.data).unwrap());
+    }
+    let n = 64usize << 20;
+    let big: Vec<u8> = (0..n).map(|i| ((i * 31) % 251) as u8).collect();
+    ops.push(json!({"cmd": "digest", "op": "raw", "pattern_len": n}));
+    want.push(digest::raw(&big));
+    let Some(got) = py("batch", &Value::Array(ops)) else {
+        return;
+    };
+    for (g, w) in got.as_array().unwrap().iter().zip(&want) {
+        assert_eq!(g["algo"], digest::current().name());
+        assert_eq!(g["digest"].as_str().unwrap(), w);
+    }
+}

@@ -62,6 +62,13 @@ byte budget, TTL, free-space floor) comes from `{root}/.policy.json`, then
 - `mmap` (default): attach maps segments read-only through `memmap2`. This is
   the crate's only `unsafe`, in one module. Without it no `unsafe` is compiled,
   and attach copies instead.
+- `digest` (since 0.2.0): `commonkit::digest`, the stack's one hashing facade:
+  `raw`, `Hasher`, `nd1` and `file` in the algorithm the runtime resolved once
+  (`HASH` in the tree's `.policy.json`, then `COMMONKIT_HASH`, then BLAKE3),
+  plus `fixed` (md5, SHA-256) and `build` (both, for build scripts). The store
+  doesn't need it and never hashes a caller's key.
+- `testing`: `testing::assert_isolated`, `testing::fresh_root` and
+  `Store::with_mark_dir`, for test suites (contract §11).
 
 ## Platforms
 

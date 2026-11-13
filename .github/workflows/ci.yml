@@ -27,12 +27,20 @@ jobs:
           enable-cache: true
       # 3.11 is the floor the model venvs need; 3.13 is current. Two runs in one job, not a matrix.
       # The cross-language suite builds rust/ck-conform; it runs in the conformance job instead.
+      # Each suite runs once per hash algorithm on a fresh run folder (.github/each_algo.sh).
       - name: pytest (3.11)
-        run: uv run --python 3.11 --extra dev pytest -q --ignore=tests/test_conformance.py
+        run: .github/each_algo.sh uv run --python 3.11 --extra dev pytest -q --ignore=tests/test_conformance.py
       - name: pytest (3.13)
-        run: uv run --python 3.13 --extra dev pytest -q --ignore=tests/test_conformance.py
+        run: .github/each_algo.sh uv run --python 3.13 --extra dev pytest -q --ignore=tests/test_conformance.py
       - name: ruff
         run: uv run --python 3.13 --extra dev ruff check .
+      - name: vectors reproduce (digests.json included)
+        # git diff can't see a new, untracked vector file; git status --porcelain can.
+        run: |
+          uv run --python 3.13 --extra dev python conformance/generate.py
+          git diff --exit-code conformance/
+          left=$(git status --porcelain conformance/)
+          if [ -n "$left" ]; then echo "$left"; exit 1; fi
       - name: uv build leaves rust/ out
         run: |
           uv build --out-dir dist-ci
@@ -56,8 +64,9 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo clippy --all-targets --no-default-features -- -D warnings
-      - run: cargo test
-      - run: cargo test --no-default-features
+      - run: ../.github/each_algo.sh cargo test
+      - run: ../.github/each_algo.sh cargo test --no-default-features
+      - run: ../.github/each_algo.sh cargo test --all-features
       - name: cargo package includes LICENSE and README, and leaves out tests/
         run: |
           cargo package --list -p commonkit > "$RUNNER_TEMP/package-list.txt"
@@ -84,8 +93,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: rust
-      - run: cargo test -p commonkit
-      - run: cargo test -p commonkit --no-default-features
+      - run: ../.github/each_algo.sh cargo test -p commonkit
+      - run: ../.github/each_algo.sh cargo test -p commonkit --no-default-features
 
   conformance:
     # Plan step 8: the Rust tests that read conformance/vectors/, then the cross-language suite,
@@ -103,12 +112,12 @@ jobs:
           enable-cache: true
       - name: vectors (Rust)
         working-directory: rust
-        run: cargo test -p commonkit --test 'vectors*'
+        run: ../.github/each_algo.sh cargo test -p commonkit --test 'vectors*' --test digest
       - name: cross-language (pytest drives both drivers)
-        run: uv run --python 3.11 --extra dev pytest -q tests/test_conformance.py tests/test_dry_run.py
+        run: .github/each_algo.sh uv run --python 3.11 --extra dev pytest -q tests/test_conformance.py tests/test_dry_run.py
       - name: cross-language (Rust drives Python)
         working-directory: rust
         env:
           # Fail, rather than skip, if uv were missing here.
           CK_CONFORM_REQUIRE_PYTHON: "1"
-        run: cargo test -p ck-conform
+        run: ../.github/each_algo.sh cargo test -p ck-conform
