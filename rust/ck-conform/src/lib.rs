@@ -415,8 +415,9 @@ fn cmd_reap(args: &Value) -> Result<Value, Error> {
     ))
 }
 
-fn policy_json(p: &Policy) -> Value {
+fn policy_json(p: &Policy, hash: &str) -> Value {
     json!({
+        "hash": hash,
         "max_bytes": p.max_bytes,
         "min_free_bytes": p.min_free_bytes,
         "ttl_s": p.ttl_s,
@@ -427,24 +428,29 @@ fn policy_json(p: &Policy) -> Value {
     })
 }
 
-fn tree_policy(args: &Value) -> Result<(PathBuf, Policy), Error> {
+fn tree_policy(args: &Value) -> Result<(PathBuf, Policy, String), Error> {
+    use commonkit::policy;
     let root = std::path::absolute(str_of(args, "root")?).map_err(|e| e.to_string())?;
-    let policy = Policy::for_root(&root, &commonkit::policy::process_env);
-    Ok((root, policy))
+    let p = Policy::for_root(&root, &policy::process_env);
+    let file = policy::read_policy(&root);
+    let (algo, _, _) =
+        policy::resolve_hash(&file, &root.join(policy::POLICY_FILE), &policy::process_env);
+    Ok((root, p, algo.name().to_owned()))
 }
 
 fn cmd_plan(args: &Value) -> Result<Value, Error> {
-    let (root, policy) = tree_policy(args)?;
+    let (root, policy, hash) = tree_policy(args)?;
     let options = policy.options(Mode::Read, AttachMode::Mmap, 0);
     let r = commonkit::reap_plan(&root, &options, &reap_options(args, 60.0));
     Ok(merge(
         report(&root, &r),
-        json!({ "policy": policy_json(&policy) }),
+        json!({ "policy": policy_json(&policy, &hash) }),
     ))
 }
 
 fn cmd_policy(args: &Value) -> Result<Value, Error> {
-    Ok(policy_json(&tree_policy(args)?.1))
+    let (_root, policy, hash) = tree_policy(args)?;
+    Ok(policy_json(&policy, &hash))
 }
 
 fn cmd_usage(args: &Value) -> Result<Value, Error> {
@@ -455,9 +461,49 @@ fn cmd_usage(args: &Value) -> Result<Value, Error> {
     Ok(json!({ "usage": usage, "stats": stats(&store) }))
 }
 
-pub const COMMANDS: [&str; 7] = [
-    "publish", "attach", "hold", "reap", "plan", "usage", "policy",
+pub const COMMANDS: [&str; 8] = [
+    "publish", "attach", "hold", "reap", "plan", "usage", "policy", "digest",
 ];
+
+/// `digest`: `op` (`raw` or `nd1`) of an `array` spec (C order; for `raw` its payload) or of
+/// `pattern_len` bytes `(i * 31) % 251`, in the process's algorithm, or in `fixed` (`md5`,
+/// `sha256`) when given.
+fn cmd_digest(args: &Value) -> Result<Value, Error> {
+    use commonkit::digest::{self, fixed};
+    let (dtype, shape, data) = match args.get("pattern_len").and_then(Value::as_u64) {
+        Some(n) => {
+            let n = usize::try_from(n).map_err(|e| e.to_string())?;
+            let data: Vec<u8> = (0..n).map(|i| ((i * 31) % 251) as u8).collect();
+            ("|u1".to_owned(), vec![n as u64], data)
+        }
+        None => {
+            let a = Array::from_spec(args.get("array").ok_or("missing array")?)?;
+            if a.order != Order::C {
+                return Err("digest takes C-order arrays".into());
+            }
+            let dtype = a
+                .descr
+                .as_simple()
+                .map(ToString::to_string)
+                .ok_or("digest takes a simple dtype")?;
+            (dtype, a.shape, a.data)
+        }
+    };
+    let fixed = match args.get("fixed").and_then(Value::as_str) {
+        None => None,
+        Some("md5") => Some(fixed::Fixed::Md5),
+        Some("sha256") => Some(fixed::Fixed::Sha256),
+        Some(f) => return Err(format!("fixed {f}")),
+    };
+    let d = match (str_of(args, "op")?, fixed) {
+        ("raw", None) => digest::raw(&data),
+        ("raw", Some(f)) => fixed::raw(f, &data),
+        ("nd1", None) => digest::nd1(&dtype, &shape, &data).map_err(|e| e.to_string())?,
+        ("nd1", Some(f)) => fixed::nd1(f, &dtype, &shape, &data).map_err(|e| e.to_string())?,
+        (op, _) => return Err(format!("op {op}")),
+    };
+    Ok(json!({ "algo": digest::current().name(), "digest": d }))
+}
 
 /// Run one command. `start_at` (Unix seconds) waits until then, to start with other processes.
 pub fn run(cmd: &str, args: &Value) -> Result<Value, Error> {
@@ -478,6 +524,7 @@ pub fn run(cmd: &str, args: &Value) -> Result<Value, Error> {
         "plan" => cmd_plan(args),
         "usage" => cmd_usage(args),
         "policy" => cmd_policy(args),
+        "digest" => cmd_digest(args),
         other => Err(format!("unknown command {other}")),
     }
 }

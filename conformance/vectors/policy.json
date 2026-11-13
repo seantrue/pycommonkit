@@ -313,6 +313,93 @@
    }
   },
   {
+   "id": "hash_file_wins",
+   "policy_file": {
+    "text": "{\"HASH\": \"md5\"}"
+   },
+   "env": {
+    "COMMONKIT_HASH": "b3"
+   },
+   "expect": {
+    "hash": "md5",
+    "hash_from": "file"
+   },
+   "note": "the file beats COMMONKIT_HASH, as for every setting (C7)"
+  },
+  {
+   "id": "hash_file_only",
+   "policy_file": {
+    "text": "{\"HASH\": \"b3\"}"
+   },
+   "env": {},
+   "expect": {
+    "hash": "b3",
+    "hash_from": "file"
+   }
+  },
+  {
+   "id": "hash_file_case",
+   "policy_file": {
+    "text": "{\"HASH\": \" MD5 \"}"
+   },
+   "env": {},
+   "expect": {
+    "hash": "md5",
+    "hash_from": "file"
+   }
+  },
+  {
+   "id": "hash_env_fills",
+   "policy_file": {
+    "text": "{\"TTL_S\": 200}"
+   },
+   "env": {
+    "COMMONKIT_HASH": "md5"
+   },
+   "expect": {
+    "hash": "md5",
+    "hash_from": "environment",
+    "ttl_s": 200.0
+   }
+  },
+  {
+   "id": "hash_bad_value",
+   "policy_file": {
+    "text": "{\"HASH\": \"sha256\"}"
+   },
+   "env": {
+    "COMMONKIT_HASH": "md5"
+   },
+   "expect": {
+    "hash": "md5",
+    "hash_from": "environment"
+   },
+   "note": "an unknown algorithm is left out, with a warning, and never raises"
+  },
+  {
+   "id": "hash_not_string",
+   "policy_file": {
+    "text": "{\"HASH\": 5}"
+   },
+   "env": {},
+   "expect": {
+    "hash": "b3",
+    "hash_from": "default"
+   }
+  },
+  {
+   "id": "hash_bad_file",
+   "policy_file": {
+    "text": "{\"HASH\": \"md5\""
+   },
+   "env": {},
+   "expect": {
+    "hash": "b3",
+    "hash_from": "default"
+   },
+   "note": "an unparseable file is absent for HASH too"
+  },
+  {
    "id": "oversize",
    "policy_file": {
     "file": "policy/oversize.policy.json"

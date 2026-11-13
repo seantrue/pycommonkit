@@ -243,6 +243,17 @@ impl PartialEq for Variants {
 
 impl Eq for Variants {}
 
+/// A scheme's digest rule (contract §3.7, D3 (a)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum DigestRule {
+    /// The scheme holds only keys whose digest has the runtime's algorithm's length
+    /// ([`crate::policy::current`]); the store declines the other length on publish and
+    /// misses it on attach, counting `shm_foreign_digest`. The rule compares a length: the
+    /// store never hashes a caller's key.
+    Current,
+}
+
 /// One domain's vocabulary (contract §3.2).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct KeyScheme {
@@ -251,6 +262,9 @@ pub struct KeyScheme {
     forms: Vec<String>,
     variants: Variants,
     dtypes: BTreeMap<String, Descr>,
+    /// None: both lengths, as every scheme before 0.2.0, and the store never asks which
+    /// algorithm is current (alexandria's `pixels`).
+    digest: Option<DigestRule>,
 }
 
 impl KeyScheme {
@@ -305,7 +319,19 @@ impl KeyScheme {
             forms,
             variants,
             dtypes: map,
+            digest: None,
         })
+    }
+
+    /// This scheme with a digest rule. The rule is part of the scheme's identity (§3.4).
+    pub fn with_digest(mut self, rule: DigestRule) -> KeyScheme {
+        self.digest = Some(rule);
+        self
+    }
+
+    /// The scheme's digest rule, if it has one.
+    pub fn digest_rule(&self) -> Option<DigestRule> {
+        self.digest
     }
 
     pub fn domain(&self) -> &str {

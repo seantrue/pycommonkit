@@ -140,7 +140,29 @@ with `/` as the separator. It is never absolute, and it depends only on the key,
 
 ### 3.7 Digests
 
-A digest is 32 or 64 lower-case hexadecimal digits. Which algorithm produced them is the scheme's business: by convention 32 are md5 and 64 are BLAKE3 (added 2026-11-10 for PlumCraft's large arrays, where md5 was the slowest step of a crossing). The two lengths can't be confused, so one scheme may hold keys of both and one key still names one content (W1). Otherwise a domain that changes algorithm MUST use a new domain or version. A reader older than this rule finds a 64-digit key unparseable, which is a miss, never an error (§1.6).
+A digest is 32 or 64 lower-case hexadecimal digits: 32 are md5 and 64 are BLAKE3 (added 2026-11-10 for PlumCraft's large arrays, where md5 was the slowest step of a crossing). The two lengths can't be confused, so one key still names one content (W1). A reader older than this rule finds a 64-digit key unparseable, which is a miss, never an error (§1.6).
+
+**The digest rule** (since 0.2.0; D3 (a)). A scheme MAY declare `digest=current` (Python `KeyScheme(..., digest="current")`, Rust `KeyScheme::with_digest(DigestRule::Current)`); the default is no rule, and the rule is part of the scheme's identity (§3.4).
+
+- A scheme with a digest rule holds only `current()`'s length (§3.8), and may change algorithm without a new domain or version: the two lengths can't collide, and the rule declines the other one. A key of the other length is declined on publish (gate 8, §6.2) and a miss on attach (§8.1), both counted `shm_foreign_digest`.
+- A scheme without a rule may hold both lengths, and changing its algorithm still MUST use a new domain or version. A store never asks which algorithm is current for such a scheme.
+- The rule compares a length. The store never computes a digest of a stored value, and never re-checks or rewrites a caller's digest: alexandria's `pixels` keys, which declare no rule, pass exactly as before, whatever `HASH` says.
+
+### 3.8 Hashing (since 0.2.0)
+
+commonkit has one hashing facade, `commonkit.digest` in Python and `commonkit::digest` in Rust (feature `digest`), so that callers never use a hash library directly (D19). Nothing the store imports reaches it.
+
+- **Algorithms:** `md5` (32 hex digits) and `b3`, BLAKE3 with its default 32-byte output (64). The default functions name no algorithm: they use the process's `current()`.
+- **The switch:** `HASH` in the tree's `.policy.json`, then the environment variable `COMMONKIT_HASH`, then the compiled default `b3`; the file wins (§10.6). Values are `md5` or `b3`, trimmed of ASCII whitespace and ASCII case-folded; anything else is ignored with one warning on stderr, and never raises. The variable breaks the `COMMONKIT_STORE_<KEY>` pattern by the maintainer's choice (D1), on purpose.
+- **One resolution per runtime.** `current()` resolves the root (§10.4), reads that tree's file once, then the environment, then the default, and caches the result. With no root (no home directory to form the default from) there is no tree and no file is read, never the working directory's `.policy.json`. The store's digest rule and the facade share it. A store built on an explicit root is judged against the same `current()`. Each copy of the Rust crate in one program has its own cache, so a program links exactly one.
+- **The line.** At its first resolution a runtime writes one line to stderr: `commonkit: hash <algo> (<source>)`, where the source is `policy file <path>`, `environment COMMONKIT_HASH` or `default`. With both a file and the variable, it names the file. A failure to write it (a closed stderr, a broken pipe) loses the line and nothing else: it never panics or raises.
+- **`raw`:** the digest of bytes; `Hasher` streams; `file(path, limit)` streams a file and returns the digest and its size, failing over the limit.
+- **`nd1`:** PlumCraft's protocol-2 array recipe, verbatim: the dtype string normalised as below, then Python's `repr` of the shape (`()`, `(5,)`, `(2, 3)`), then the element bytes in C order. Normalising: `=` is read as `<`; a big-endian multi-byte kind is written `<` and its bytes are swapped in units of its item size (complex: half of it; `U`: 4), in pieces of at most 16 MiB; a big-endian one-byte kind is written `|`. Object and structured dtypes have no `nd1` (an error, a loud path), and a datetime unit, brackets included, is at most 8 characters.
+- **`fixed`:** a named algorithm, `md5` or `sha256`, for digests that must not follow the switch: goldens, parity records, security and file formats (D9). Its uses are allowlisted where they are made. It is the only way to name an algorithm: `Hasher` takes none.
+- **`build`:** `both(bytes)` gives the md5 and b3 digests, and `pick` the one for `current()`, for a value a build script bakes before the runtime's algorithm is known (D4). Allowed only in build scripts.
+- **Dependencies:** Python imports `blake3` (a hard dependency of pyuncommonkit) lazily, at the first BLAKE3 digest. The Rust crate's `md-5`, `blake3` and `sha2` are optional, behind `digest`.
+
+The vectors are `digests.json` (§13.3), computed by the generator with `hashlib` and `blake3` directly: the conformance tools are the second implementation that checks the facade, and the only other place hash code is allowed.
 
 ## 4. Layout
 
@@ -281,6 +303,7 @@ A store has a root, a **mode** (`off`, `read` or `readwrite`), an **attach mode*
 | 5 | Budget | `.usage.json` is fresh and valid (§9.7), and `bytes + nbytes > max_bytes`; then a rate-limited reap turn | `shm_declined_budget` |
 | 6 | Dtype | §6.3 | `shm_declined_dtype` |
 | 7 | Key | The key fails its registered scheme (§3.5) | `shm_bad_key` |
+| 8 | Digest | The key's scheme has the digest rule, and the digest is not `current()`'s length (§3.7). Since 0.2.0 | `shm_foreign_digest` |
 
 `nbytes` is `itemsize × product(shape)`. The limits themselves are admitted: `nbytes == max_array_bytes`, `nbytes == min_array_bytes`, and `bytes + nbytes == max_bytes` all pass (vectors `admission.size_equal`, `admission.small_equal`, `admission.budget_equal`).
 
@@ -374,6 +397,7 @@ On POSIX systems unlinking or renaming over a file that another process has mapp
 |---|---|---|
 | The store is disabled | Miss | None |
 | The key fails the reader's check (§3.5) | Miss | `shm_bad_key` |
+| The key's registered scheme (same domain and version) has the digest rule, and the digest is not `current()`'s length (§3.7) | Miss | `shm_foreign_digest` |
 | No file at the path | Miss | `shm_miss` |
 | The file is torn (§5.7), or opening, mapping or reading it fails for any other reason | Miss | `shm_torn` |
 | The file is whole | The array, read-only | `shm_hit`, then a touch (§8.2) |
@@ -484,10 +508,12 @@ Tree-wide policy applies to every segment in a tree, whichever process reaps, so
 Windows' root is on disk, as macOS's is (it has no `/dev/shm`, which would resolve to `\dev\shm` on the current drive), so it takes macOS's budget. From `seantrue/commonkit` `d8198ae`, the Windows work C10 said would be merged.
 | `FSYNC` | `COMMONKIT_STORE_FSYNC` | flag | off | off | `fsync` |
 | `VERIFY_REPUBLISH` | `COMMONKIT_STORE_VERIFY_REPUBLISH` | flag | off | off | `verify_republish` |
+| `HASH` | `COMMONKIT_HASH` (no `STORE_`, D1) | `md5` or `b3` (§3.8) | `b3` | `b3` | none: the runtime's `current()` (§3.8). Since 0.2.0 |
 
 - "Linux" means every non-macOS POSIX system. Windows: §12.
 - `trunc` truncates toward zero. Values are not range-checked in version 1: a negative TTL, for example, is accepted.
 - `FSYNC` and `VERIFY_REPUBLISH` are new. Python conforms since pycommonkit 0.1.0 (A13).
+- `HASH`'s variable is `COMMONKIT_HASH`, not `COMMONKIT_STORE_HASH`, by the maintainer's choice (D1, round 7). Don't "fix" it. `HASH` isn't one of the store defaults Python lists in `DEFAULTS`.
 - On thresher the tree's policy is `ROOT=/Volumes/CommonkitStore/store`, `MAX_GB=7`, `MIN_FREE_GB=1`, `TTL_S=604800`.
 
 ### 10.2 Numbers
@@ -515,9 +541,9 @@ A flag value is **on** when it equals `1`, `true`, `yes` or `on`, compared case-
 
 ### 10.5 The policy file (C7)
 
-- **Location:** `.policy.json` directly under the root. It is read once, when the shared store is constructed. A store constructed directly with explicit settings (tests) is configured by its caller.
+- **Location:** `.policy.json` directly under the root. It is read once, when the shared store is constructed. A store constructed directly with explicit settings (tests) is configured by its caller. The hash setting is read once per runtime from the same file the store's policy comes from (§3.8); Python's `shared_store` still reads the file at each construction, and only `HASH` is cached.
 - **Validity:** the file is used only when it is a regular file of at most 65536 bytes, holding UTF-8 JSON (RFC 8259) whose top level is an object with no duplicate keys. `NaN` and `Infinity` are not JSON. A missing, oversized, unreadable or invalid file is treated as **absent**, entirely.
-- **Keys** are the setting names of §10.1 exactly, with no `COMMONKIT_STORE_` prefix and in upper case. `ROOT` is ignored (§10.4). Unknown keys are ignored.
+- **Keys** are the setting names of §10.1 exactly (`HASH` included), with no `COMMONKIT_STORE_` prefix and in upper case. `ROOT` is ignored (§10.4). Unknown keys are ignored.
 - **Values:**
   - a number setting takes a JSON number, or a string valid under §10.2;
   - a flag takes JSON `true` or `false`, or a string read under §10.3;
@@ -552,8 +578,17 @@ Implementations use these names, so a stats table can sum them across languages.
 | `shm_reap_refused` | §9.1 |
 | `shm_reap_failed` | §9.6, §9.8 |
 | `shm_removed`, `shm_remove_failed` (new) | §6.7 |
+| `shm_foreign_digest` (since 0.2.0) | §3.7, §6.2, §8.1 |
 
 A store's counters are drained (read and reset together) by `drain_stats`.
+
+**Marker files** (since 0.2.0). A declined key never reaches disk, so the evidence of a digest leak lives in the process that declined it, and programs may leave without running anything at exit. So when a store has a **mark folder**, it writes that evidence when it happens:
+
+- The mark folder is `COMMONKIT_MARK_DIR`, read when the store is constructed, unless the store was given its own (Python `mark_dir=`, where `""` means none; Rust `Store::with_mark_dir`, feature `testing`). With neither, nothing is written: production leaves it unset.
+- The first store construction for a mark folder in a process creates `<pid>.started`, a JSON object with `program`, `pid`, `algo`, `source` (as in the stderr line) and `root`.
+- The first `shm_foreign_digest` or `shm_bad_key` event for a mark folder in a process creates `<pid>.<counter>`, with `program`, `pid`, `counter`, `scheme` (`domain:version`), `key` and `root`. Each file is created exclusively (an existing file is never overwritten) with mode 0600, and a process writes each name for a folder at most once, even if the file is removed; the folder is created first (mode 0700); a failed write is ignored and never fails a store call.
+
+**The test harness** (D25 E). A suite runs inside a run folder named by `COMMONKIT_TEST_RUN`, with a fresh empty `COMMONKIT_STORE_ROOT` and a `COMMONKIT_MARK_DIR` inside it and `COMMONKIT_HASH` naming the algorithm under test, once per algorithm, never inheriting a shell's values. `testing.assert_isolated()` (Rust `testing::assert_isolated`) fails when the root is unset, is or contains the platform default root, or doesn't resolve inside `COMMONKIT_TEST_RUN`, or when that is unset; it reads nothing in the root, so it gives every test the same answer in any order. `testing.fresh_root()` makes an empty root in the run. Tests that produce a bad or foreign key on purpose use `testing.expect_marks(store, [...])` (Python) or `Store::with_mark_dir` (Rust), so their markers land in a scratch folder; the harness fails on any `*.shm_bad_key` or `*.shm_foreign_digest` in the run's mark folder. It also fails unless every `<pid>.started` in the run's mark folder names the algorithm under test, and there is at least one: a process that resolves another algorithm, a child on the default say, is a leak. A test that must resolve something else (a policy vector whose `env` is the whole environment) sends its markers to a scratch folder, so the waiver shows in the test. `commonkit.scan` (Python, standard library only) reports the segments of named forms whose digest length isn't an algorithm's, and `vimp:v1` variants, for a tree on any host.
 
 ## 12. Windows
 
@@ -600,8 +635,9 @@ Several files describe an array as `{"descr", "shape", "order", "fill"}`:
 | `admission.json` | A `key`, an `array`, `store` settings and an optional fresh `.usage.json` (`usage`) | `outcome`: `published`, `declined:<gate>` or `bad_key`; exact `counters`; no `.tmp` file left |
 | `existing_key.json` | A `key`, an `existing` fixture (or `null`) aged `mtime_age_s`, the new `array`, and `verify_republish` | `outcome`: `published`, `touched` or `KeyCollision`; exact `counters`; `file_after` (`unchanged`, or `new` with `file_sha256`); `mtime` (`unchanged`, `refreshed` or `new`) |
 | `reaper_paths.json` | A tree holding one entry at `path` (`kind` file or symlink), aged `age_s`, reaped with the settings in `reap` | `reaped` (with `shm_reaped` 1 and its bytes), `swept` (gone, no counter) or `kept` |
-| `env.json` | `env` variables, no policy file | Effective store fields; `"default"` means the platform default in `defaults`; `{home}` and `{cwd}` are placeholders; `root` per platform where it differs |
-| `policy.json` | A `policy_file` (`text`, a fixture `file`, or `directory`) and `env` | Effective store fields; `{root}` is the store's root |
+| `env.json` | `env` variables, no policy file | Effective store fields; `"default"` means the platform default in `defaults`; `{home}` and `{cwd}` are placeholders; `root` per platform where it differs. Since 0.2.0 also `hash` (§3.8) |
+| `policy.json` | A `policy_file` (`text`, a fixture `file`, or `directory`) and `env` | Effective store fields; `{root}` is the store's root. Since 0.2.0 also `hash` and `hash_from` (`file`, `environment` or `default`), from the pure resolution |
+| `digests.json` (since 0.2.0) | `raw`: input bytes (`bytes_hex`, or `pattern.len` bytes `(i × 31) mod 251`). `nd1`: `dtype` (numpy's `dtype.str`), `shape` and the C-order `bytes_hex` as numpy holds them | `md5`, `b3` and `sha256` of each; `build::both` of a `raw` input is its `md5` and `b3` (§3.8) |
 
 "Exact counters" means the counters that changed, and by how much, with every other counter unchanged.
 

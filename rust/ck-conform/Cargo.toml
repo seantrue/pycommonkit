@@ -16,7 +16,7 @@ default = ["mmap"]
 mmap = ["commonkit/mmap"]
 
 [dependencies]
-commonkit = { path = "../commonkit", default-features = false }
+commonkit = { path = "../commonkit", default-features = false, features = ["digest", "testing"] }
 serde_json = "1"
 sha2 = "0.10"
 

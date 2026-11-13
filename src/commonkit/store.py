@@ -54,7 +54,9 @@ from collections import Counter
 import numpy as np
 from numpy.lib import format as _npf
 
+from . import _marks
 from . import keys as _keys
+from . import policy as _policy
 
 try:                                    # POSIX only; Windows has no fcntl (contract §12)
     import fcntl as _fcntl
@@ -296,7 +298,7 @@ class SharedArrayStore:
                  max_bytes=16 * 2**30, min_free_bytes=8 * 2**30,
                  ttl_s=900, min_array_bytes=256 * 1024,
                  max_array_bytes=128 * 2**20, reap_interval_s=30,
-                 fsync=False, verify_republish=False):
+                 fsync=False, verify_republish=False, mark_dir=None):
         # An empty root stays empty, so the check below disables the store (contract §6.1):
         # ``os.path.abspath("")`` is the working directory, which an empty root used to
         # become, publishing segments into wherever the process happened to start.
@@ -322,6 +324,13 @@ class SharedArrayStore:
         self._statvfs_free = 0
         self._last_reap = 0.0
         self.disabled = True
+        # Where declined keys leave their markers (contract §11): ``mark_dir`` when given
+        # (tests; ``""`` turns marks off), else COMMONKIT_MARK_DIR, read now. Unset in
+        # production, so nothing is written there.
+        self._mark_dir = _marks.from_env() if mark_dir is None else str(mark_dir)
+        if self._mark_dir:
+            _marks.started(self._mark_dir, _policy.hash_algo(), _policy.hash_source(),
+                           self.root)
 
         if self.mode == "off" or not self.root or self.root == "/":
             return
@@ -360,6 +369,25 @@ class SharedArrayStore:
         # separator, so a Windows path isn't `...\store\plumarr/91/...`.
         return os.path.join(self.root, *_keys.relpath(key).split("/"))
 
+    def _mark(self, counter: str, key) -> None:
+        """Count ``counter`` and leave its marker (the first per folder and process)."""
+        self.stats[counter] += 1
+        if self._mark_dir:
+            _marks.event(self._mark_dir, counter, key, self.root)
+
+    def _foreign(self, key: str) -> bool:
+        """Whether a parsed key's scheme has the digest rule and its digest is not the
+        current algorithm's length (contract §3.7). Compares a length; never hashes. A
+        scheme with no rule never calls :func:`policy.hash_algo`."""
+        try:
+            scheme = _keys.scheme_for(key)
+        except ValueError:
+            return False
+        if scheme.digest != "current":
+            return False
+        digest = str(key).split(":")[3]
+        return len(digest) != _policy.HEX_LEN[_policy.hash_algo()]
+
     # ---------------------------------------------------------------- reading
 
     def attach(self, key: str):
@@ -369,7 +397,10 @@ class SharedArrayStore:
         try:
             path = self.path_for(key)
         except ValueError:
-            self.stats["shm_bad_key"] += 1
+            self._mark("shm_bad_key", key)
+            return None
+        if self._foreign(key):
+            self._mark("shm_foreign_digest", key)
             return None
         try:
             arr = _load(path, mmap=self.attach_mode != "read")
@@ -472,7 +503,11 @@ class SharedArrayStore:
         try:
             path = self.path_for(key)
         except ValueError:
-            self.stats["shm_bad_key"] += 1
+            self._mark("shm_bad_key", key)
+            return False
+        # Gate 8 (contract §6.2): a rule scheme holds only the current algorithm's length.
+        if self._foreign(key):
+            self._mark("shm_foreign_digest", key)
             return False
 
         existing = self._existing(key, path, arr)
@@ -652,7 +687,7 @@ class SharedArrayStore:
         try:
             path = self.path_for(key)
         except ValueError:
-            self.stats["shm_bad_key"] += 1
+            self._mark("shm_bad_key", key)
             return False
         try:
             if not stat.S_ISREG(os.lstat(path).st_mode):

@@ -134,7 +134,13 @@ key alone, which is what lets one store hold several domains.
 
 ## Tests
 
-    uv run --extra dev pytest -q          # includes the conformance vectors
+    .github/each_algo.sh uv run --extra dev pytest -q   # both hash algorithms, fresh roots
+
+Every suite runs once per hash algorithm (md5, then BLAKE3), each on a fresh run folder
+(`COMMONKIT_TEST_RUN`, holding an empty `COMMONKIT_STORE_ROOT` and a `COMMONKIT_MARK_DIR`);
+on anything else the guard test fails. It is one failing test, not a stop: the rest of the
+suite still runs, so run it through the harness rather than from a shell pointed at a live
+tree.
 
 The suite addresses audio and video rather than images, to show the package is
 not pixel-specific. Two modules run end to end against real media and skip

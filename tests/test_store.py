@@ -14,6 +14,7 @@ import pytest
 
 import commonkit.store as cks
 from commonkit import KeyCollision, KeyScheme, SharedArrayStore, register
+from commonkit.testing import expect_marks
 
 D1 = "ab" * 16
 D2 = "cd" * 16
@@ -84,7 +85,8 @@ def test_the_path_stays_under_the_root(store):
 
 def test_an_unregistered_domain_is_a_miss_not_a_crash(store):
     """A key the store cannot address must be counted and shrugged off."""
-    assert store.attach(f"nobody:v1:pil:{D1}:o1") is None
+    with expect_marks(store, ["shm_bad_key"]):
+        assert store.attach(f"nobody:v1:pil:{D1}:o1") is None
     assert store.drain_stats()["shm_bad_key"] == 1
 
 
@@ -623,7 +625,8 @@ def test_remove_needs_readwrite_and_a_valid_key(store, tmp_path):
     store.publish(key(), _wave())
     assert reader.remove(key()) is False
     assert reader.drain_stats()["shm_declined_mode"] == 1
-    assert store.remove("nosuchdomain:v1:x:" + "ab" * 16 + ":x") is False
+    with expect_marks(store, ["shm_bad_key"]):
+        assert store.remove("nosuchdomain:v1:x:" + "ab" * 16 + ":x") is False
     assert store.drain_stats()["shm_bad_key"] == 1
     assert store.attach(key()) is not None
 

@@ -6,12 +6,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The build backend is `uv_build`; dev tools are in the `dev` extra.
 
+Every suite runs once per hash algorithm on a fresh run folder (D25 E): `COMMONKIT_TEST_RUN`
+holding an empty `COMMONKIT_STORE_ROOT` and a `COMMONKIT_MARK_DIR`, with `COMMONKIT_HASH` set.
+The guard tests (`tests/test_guard.py`, `rust/commonkit/tests/guard.rs`) fail otherwise. That
+is one failing test, not a stop: the rest of the suite still runs, so never run a suite from a
+shell whose `COMMONKIT_STORE_ROOT` points at a live tree (thresher's does).
+`.github/each_algo.sh CMD` runs CMD under md5 and then b3 that way, and fails on a stray
+bad-key or foreign-digest marker, or unless every `<pid>.started` marker names the algorithm
+(and there is one). A test that must resolve another sends its markers to a scratch folder.
+On thresher plum's `claude-debug/hf2_env.py` does the same from an environment built from
+nothing.
+
 ```bash
-uv run --extra dev pytest -q                                   # full suite (<1s)
+.github/each_algo.sh uv run --extra dev pytest -q              # full suite, both algorithms
+(cd rust && ../.github/each_algo.sh cargo test)                # Rust, both algorithms
 uv run --extra dev pytest tests/test_store.py::test_publish_then_attach_returns_the_same_samples
 uv run --extra dev ruff check .                                # line-length 100
 uv build                                                       # wheel + sdist (pyuncommonkit)
-uv run python conformance/generate.py && git diff --exit-code conformance/   # vectors reproduce
+uv run python conformance/generate.py && test -z "$(git status --porcelain conformance/)"  # vectors reproduce
 ```
 
 **Cross-language rule:** a behaviour change lands in the contract, the vectors and every
@@ -19,6 +31,18 @@ implementation (Python now, `rust/` later) in one PR.
 
 `requires-python = ">=3.11"` is deliberate: the consumers are python-3.11 model
 venvs. Don't use 3.12+ features, and don't add dependencies beyond numpy.
+
+**The one exception: `blake3`** (since 0.2.0), a hard dependency of the hashing facade,
+imported lazily on the first BLAKE3 digest, so the store and anything that never hashes
+never loads it. The maintainer's words: D6, "★ Hard dependency, lazy import, wheels verified
+3.11–3.14 on all OSes before release", and D19, "REALLY,REALLY,REALLY try not to use system
+libraries directly if they are implementations of swappable algorithms. Hashing is a clear
+one." Nothing else joins numpy.
+
+**Hashing only through the facade.** `hashlib` and `blake3` are banned by ruff (TID251)
+everywhere but `src/commonkit/digest.py`, `conformance/` and `tests/` (the second
+implementation that checks the facade); in Rust the hash crates are named only in
+`src/digest.rs` (`tests/store_no_hash.rs`).
 
 ## What this is
 
@@ -79,6 +103,21 @@ array under an existing key is a key collision, a major system error, and raises
   so callers never infer the tier from counter deltas. The store counts its own
   hits/publishes; the tier must not double-count them (`drain_stats` sums both).
 - `shared.py` — `shared_store()`: the one per-host store all users share. Tree-wide policy (root, `MAX_GB`, `TTL_S`, `MIN_FREE_GB`, `REAP_S`, `MAX_ARRAY_BYTES`) (plus `FSYNC`, `VERIFY_REPUBLISH`) comes only from `{root}/.policy.json` (which wins, C7), then `COMMONKIT_STORE_*` env vars, then `DEFAULTS`; the root never comes from the file (macOS: `~/Library/Caches/commonkit/store`, 2 GB because Time Machine local snapshots pin reaped segments; Linux: `/dev/shm/commonkit`, 8 GB). Callers pick only `mode` and `min_array_bytes`; a `root` argument exists for tests. Form names are global across domains in the shared tree.
+- `policy.py` (since 0.2.0) — the settings, their grammar and the `.policy.json` reader,
+  moved from `shared.py` (which re-exports them), and the hash setting: `HASH`, then
+  `COMMONKIT_HASH`, then `b3`, resolved once per process by `hash_algo()`, announced as
+  `commonkit: hash <algo> (<source>)` on stderr. Standard library only.
+- `digest.py` — the hashing facade (contract §3.8): `raw`, `Hasher`, `nd1`, `file`, `fixed`
+  (`md5`, `sha256`) and `build`. Imports only `policy`; `__init__` doesn't import it, and
+  nothing the store imports reaches it (`tests/test_store_no_hash.py`).
+- **The digest rule** (contract §3.7): `KeyScheme(..., digest="current")` holds only the
+  current algorithm's length; the store declines or misses the other as
+  `shm_foreign_digest`. No rule (alexandria's `pixels`) is exactly as before, and the store
+  never hashes or re-checks a caller's key.
+- `_marks.py` — marker files under `COMMONKIT_MARK_DIR` (`<pid>.started`,
+  `<pid>.shm_bad_key`, `<pid>.shm_foreign_digest`), written when they happen.
+  `testing.py` — `assert_isolated`, `fresh_root`, `expect_marks`. `scan.py` — finds digests
+  of the wrong length in a tree's rule forms; runs as `python3 - ARGS < scan.py`.
 - `read.py` — `note()` (the single writer of `{prefix}{source}` counters,
   raises on an unknown source) and a never-raising `attach()` helper. Not
   re-exported from `__init__`.

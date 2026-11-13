@@ -148,7 +148,9 @@ fn test_the_path_stays_under_the_root() {
 /// does: an unregistered domain is an ordinary miss. A key that fails the grammar is counted.
 #[test]
 fn test_an_unregistered_domain_is_a_miss_not_a_crash() {
-    let (_d, s) = store();
+    let (d, s) = store();
+    // Bad keys on purpose: their marker goes to a scratch folder, not the run's (§11).
+    let s = s.with_mark_dir(d.path().join("marks"));
     assert!(s.attach(&format!("nobody:v1:pil:{D1}:o1")).is_none());
     assert_eq!(stats(&s), [("shm_miss", 1)]);
     for bad in [
@@ -161,6 +163,12 @@ fn test_an_unregistered_domain_is_a_miss_not_a_crash() {
         assert!(s.path_for(bad).is_none(), "{bad:?}");
     }
     assert_eq!(stats(&s), [("shm_bad_key", 4)]);
+    assert!(
+        d.path()
+            .join("marks")
+            .join(format!("{}.shm_bad_key", std::process::id()))
+            .exists()
+    );
 }
 
 // ------------------------------------------------- dtype policy is the scheme's
@@ -1797,7 +1805,8 @@ fn test_remove_of_an_absent_key_is_false_and_counts_nothing() {
 
 #[test]
 fn test_remove_needs_readwrite_and_a_valid_key() {
-    let (_d, s) = store();
+    let (d, s) = store();
+    let s = s.with_mark_dir(d.path().join("marks"));
     s.publish(&key(), wave(1000).r()).unwrap();
     let reader = again(
         &s,

@@ -15,9 +15,11 @@
 
 use std::collections::BTreeMap;
 use std::ffi::OsString;
+use std::fmt;
 use std::fs::File;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
+use std::sync::OnceLock;
 
 use crate::json::{self, Json};
 use crate::segment::AttachMode;
@@ -259,6 +261,11 @@ impl PolicyFile {
         }
     }
 
+    /// The raw `HASH` entry, if the file has one (contract §3.8).
+    fn hash(&self) -> Option<&Json> {
+        self.entries.get("HASH")
+    }
+
     /// A flag from JSON `true`/`false` or a string read under §10.3. Anything else is left out.
     fn flag(&self, s: Setting) -> Option<bool> {
         match self.entries.get(s.name())? {
@@ -298,6 +305,185 @@ fn read_policy_inner(path: &Path) -> Option<PolicyFile> {
     let entries: BTreeMap<String, Json> = pairs.into_iter().collect();
     // A repeated key: JSON parsers resolve it differently, so the file means nothing.
     (entries.len() == count).then_some(PolicyFile { entries })
+}
+
+// ----------------------------------------------------------------------- the hash setting
+
+/// The variable that names the algorithm. It breaks the `COMMONKIT_STORE_<KEY>` pattern by the
+/// maintainer's choice (D1, round 7); don't "fix" it.
+pub const HASH_ENV: &str = "COMMONKIT_HASH";
+
+/// The algorithm a process hashes with (contract §3.8). Named here, with the resolution,
+/// rather than in `digest`, because the store's digest rule needs the length and the store
+/// must not reach any hashing code (the alexandria constraint).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[non_exhaustive]
+pub enum Algo {
+    Md5,
+    B3,
+}
+
+impl Algo {
+    /// The compiled default (D2).
+    pub const DEFAULT: Algo = Algo::B3;
+
+    /// `md5` or `b3`, as in `HASH` and in handles.
+    pub fn name(self) -> &'static str {
+        match self {
+            Algo::Md5 => "md5",
+            Algo::B3 => "b3",
+        }
+    }
+
+    /// The digest's length in hex digits: 32 or 64 (contract §3.7).
+    pub fn hex_len(self) -> usize {
+        match self {
+            Algo::Md5 => 32,
+            Algo::B3 => 64,
+        }
+    }
+
+    /// `md5` or `b3` after trimming ASCII whitespace and folding ASCII case; else `None`.
+    pub fn from_name(s: &str) -> Option<Algo> {
+        let t = s.trim_matches([' ', '\t', '\n', '\u{b}', '\u{c}', '\r']);
+        if t.eq_ignore_ascii_case("md5") {
+            Some(Algo::Md5)
+        } else if t.eq_ignore_ascii_case("b3") {
+            Some(Algo::B3)
+        } else {
+            None
+        }
+    }
+}
+
+impl fmt::Display for Algo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.name())
+    }
+}
+
+/// Where a process's algorithm came from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Source {
+    /// `HASH` in this policy file.
+    File(PathBuf),
+    /// `COMMONKIT_HASH`.
+    Env,
+    /// The compiled default.
+    Default,
+}
+
+impl fmt::Display for Source {
+    /// `policy file <path>`, `environment COMMONKIT_HASH` or `default`, as the stderr line
+    /// and Python's `hash_source()` say it.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Source::File(p) => write!(f, "policy file {}", p.display()),
+            Source::Env => write!(f, "environment {HASH_ENV}"),
+            Source::Default => f.write_str("default"),
+        }
+    }
+}
+
+/// The hash setting from a policy file (found at `file_path`) and an environment (contract
+/// §3.8, §10.6): the file's valid `HASH`, else `COMMONKIT_HASH`, else `b3`. Pure: no caching
+/// and no output. A present but invalid value is skipped with a warning, never an error.
+pub fn resolve_hash(
+    file: &PolicyFile,
+    file_path: &Path,
+    env: &dyn Fn(&str) -> Option<OsString>,
+) -> (Algo, Source, Vec<String>) {
+    let mut warnings = Vec::new();
+    if let Some(v) = file.hash() {
+        let algo = match v {
+            Json::Str(s) => Algo::from_name(s),
+            _ => None,
+        };
+        if let Some(a) = algo {
+            return (a, Source::File(file_path.to_path_buf()), warnings);
+        }
+        warnings.push(format!(
+            "commonkit: ignoring HASH {} in policy file {}: not md5 or b3",
+            json_text(v),
+            file_path.display()
+        ));
+    }
+    if let Some(raw) = env(HASH_ENV).filter(|v| !v.is_empty()) {
+        if let Some(a) = raw.to_str().and_then(Algo::from_name) {
+            return (a, Source::Env, warnings);
+        }
+        warnings.push(format!(
+            "commonkit: ignoring {HASH_ENV}={:?}: not md5 or b3",
+            raw.to_string_lossy()
+        ));
+    }
+    (Algo::DEFAULT, Source::Default, warnings)
+}
+
+/// The hash setting for the tree at `root` (its `.policy.json`, read now) and an environment,
+/// as [`resolve_hash`]. With no root there is no tree, so no file is read: never the working
+/// directory's `.policy.json`, which an empty root would name. Python's `_resolve_hash_at`
+/// agrees.
+pub(crate) fn resolve_hash_at(
+    root: Option<&Path>,
+    env: &dyn Fn(&str) -> Option<OsString>,
+) -> (Algo, Source, Vec<String>) {
+    match root {
+        Some(root) => {
+            let path = root.join(POLICY_FILE);
+            resolve_hash(&read_policy(root), &path, env)
+        }
+        None => resolve_hash(&PolicyFile::default(), Path::new(POLICY_FILE), env),
+    }
+}
+
+fn json_text(v: &Json) -> String {
+    match v {
+        Json::Str(s) => format!("{s:?}"),
+        Json::Number { text, .. } => text.clone(),
+        Json::Bool(b) => b.to_string(),
+        Json::Null => "null".into(),
+        _ => "a JSON container".into(),
+    }
+}
+
+static HASH: OnceLock<(Algo, Source)> = OnceLock::new();
+
+fn resolved() -> &'static (Algo, Source) {
+    HASH.get_or_init(|| resolve_process(resolve_root(&process_env)))
+}
+
+/// Everything [`resolved`] does with the root [`resolve_root`] found, so a test can give it
+/// none: a host always forms one through the password database, so `None` can't be forced.
+fn resolve_process(found: Option<PathBuf>) -> (Algo, Source) {
+    // No root (no home on macOS or Windows, or a `~` nothing expanded): no tree, so no
+    // file, never `./.policy.json` (as Python).
+    let root = found
+        .filter(|r| r.components().next() != Some(Component::Normal("~".as_ref())))
+        .map(|r| absolute(&r).unwrap_or(r));
+    let (algo, source, warnings) = resolve_hash_at(root.as_deref(), &process_env);
+    // `writeln!`, not `eprintln!`, which panics on a broken pipe: the first resolution can
+    // happen inside a store call, which never fails (contract §3.8).
+    let mut err = std::io::stderr().lock();
+    for w in warnings {
+        let _ = writeln!(err, "{w}");
+    }
+    let _ = writeln!(err, "commonkit: hash {algo} ({source})");
+    (algo, source)
+}
+
+/// This runtime's algorithm: resolved at the first call (the tree's `.policy.json`, then
+/// `COMMONKIT_HASH`, then `b3`), announced once on stderr as
+/// `commonkit: hash <algo> (<source>)`, then cached. The store's digest rule and `digest`
+/// share it. One per copy of this crate, so a runtime must link exactly one.
+pub fn current() -> Algo {
+    resolved().0
+}
+
+/// Where [`current`] came from.
+pub fn source() -> Source {
+    resolved().1.clone()
 }
 
 // ------------------------------------------------------------------------------- roots
@@ -369,6 +555,48 @@ pub fn shared_store_at(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// In a child (`CK_NO_ROOT_CHILD`): the process resolution given no root, and given a
+    /// `~` root nothing expanded.
+    #[test]
+    fn child_no_root() {
+        if std::env::var_os("CK_NO_ROOT_CHILD").is_none() {
+            return;
+        }
+        let (a, s) = resolve_process(None);
+        println!("none: {} ({s})", a.name());
+        let (a, s) = resolve_process(Some(PathBuf::from("~/store")));
+        println!("tilde: {} ({s})", a.name());
+    }
+
+    /// Finding 7 of the L0 review, through the resolution itself: with no root, neither the
+    /// working directory's `.policy.json` nor one under a literal `~/store` is read.
+    #[test]
+    fn no_root_reads_no_policy_file_from_the_working_directory() {
+        if std::env::var_os("CK_NO_ROOT_CHILD").is_some() {
+            return;
+        }
+        let cwd = tempfile::tempdir().unwrap();
+        std::fs::write(cwd.path().join(".policy.json"), r#"{"HASH": "md5"}"#).unwrap();
+        std::fs::create_dir_all(cwd.path().join("~/store")).unwrap();
+        std::fs::write(
+            cwd.path().join("~/store/.policy.json"),
+            r#"{"HASH": "md5"}"#,
+        )
+        .unwrap();
+        let out = std::process::Command::new(std::env::current_exe().unwrap())
+            .args(["policy::tests::child_no_root", "--exact", "--nocapture"])
+            .args(["--test-threads=1"])
+            .env("CK_NO_ROOT_CHILD", "1")
+            .env_remove("COMMONKIT_HASH")
+            .current_dir(cwd.path())
+            .output()
+            .unwrap();
+        let text = String::from_utf8_lossy(&out.stdout);
+        assert!(out.status.success(), "{text}");
+        assert!(text.contains("none: b3 (default)"), "{text}");
+        assert!(text.contains("tilde: b3 (default)"), "{text}");
+    }
 
     #[test]
     fn number_grammar() {
