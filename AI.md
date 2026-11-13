@@ -43,6 +43,12 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-12 — commonkit and pyuncommonkit 0.2.0 (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked:** "CPM L0" (PR #19, merged as `45db35b`), then "Go for 1,2": release 0.2.0, then start layer 1.
+
+**What the AI did:** released from a clean worktree at `main` `45db35b`, after the merge this time (cf. the 0.1.2 entry); the version was already 0.2.0 in both manifests from #19. Gates: neither 0.2.0 existed on crates.io or PyPI, no 0.2.0 tag existed, and CI on #19 passed (python, rust, msrv on Rust 1.95, conformance). `cargo publish --dry-run --locked`, `uv build` and `twine check` of the wheel and sdist passed. Smoke test: the wheel installed into a fresh Python 3.13 venv, where it reported 0.2.0 and hashed `b"abc"` under each algorithm to the published reference digests (MD5 `900150…7f72`, BLAKE3 `6437b3…9d85`). Published `commonkit` 0.2.0 to crates.io and `pyuncommonkit` 0.2.0 to PyPI; tags `commonkit-v0.2.0` and `pyuncommonkit-v0.2.0` on `45db35b`. Not run on Windows or Linux beyond CI.
+
 ### 2026-11-12 — 0.2.0: the hashing facade, the hash switch, the digest rule and marker files (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked for.** One switch for the whole virtimp stack: "Using MD5 vs Blake is a system wide decision. It has to affect all code, and it has to be toggleable for testing." Then, D19: "Move this to commonkit, replan. Note: REALLY,REALLY,REALLY try not to use system libraries directly if they are implementations of swappable algorithms. Hashing is a clear one." On alexandria: "Not an issue ATM, as long as commonkit never default to it's internal hashing implementation." His decisions D1–D25, made over eleven rounds of questions in plum's queue, fixed the design: `HASH` in `.policy.json` plus `COMMONKIT_HASH`, file wins, one resolution per process (D1); BLAKE3 the compiled default (D2); a per-scheme declaration rather than a tree stamp (D3 "a"); `blake3` a hard, lazily imported dependency (D6); `fixed` for goldens and security (D9); one process per algorithm in tests (D17); every build and test in a clean environment that refuses his trees (D25 E); and the cuts of D25 G. The plan is plum's `docs/plans/2026-11-12-commonkit-hash-facade.md` (Revision 7), written by AI planners and reviewed by AI evaluators; this is its layer 0, started on his word: "Go L0."

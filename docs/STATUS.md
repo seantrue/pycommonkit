@@ -4,7 +4,7 @@
 
 ## Where things stand
 
-- **0.2.0, the hashing facade (2026-11-12, branch `feat/hash-facade`, not merged or released).** Layer 0 of plum's plan `2026-11-12-commonkit-hash-facade` (the maintainer: "Go L0."). One system-wide hash switch for the virtimp stack, in commonkit, so no caller uses a hash library directly (D19):
+- **0.2.0, the hashing facade (2026-11-12, PR #19, merged `45db35b`; released to crates.io and PyPI, tags `commonkit-v0.2.0` and `pyuncommonkit-v0.2.0`).** Layer 0 of plum's plan `2026-11-12-commonkit-hash-facade` (the maintainer: "Go L0."). One system-wide hash switch for the virtimp stack, in commonkit, so no caller uses a hash library directly (D19):
   - `commonkit.digest` / `commonkit::digest` (feature `digest`): `raw`, `Hasher`, `nd1` (PlumCraft's protocol-2 recipe), `file`, `fixed` (md5, SHA-256) and `build` (both, for build scripts); contract §3.8.
   - The switch: `HASH` in `.policy.json`, then `COMMONKIT_HASH`, then BLAKE3; resolved once per process (`policy.hash_algo()` / `policy::current()`), announced as `commonkit: hash <algo> (<source>)` on stderr. Python's policy reader moved to `commonkit.policy`; `shared` re-exports it.
   - The per-scheme digest rule (§3.7): `digest="current"` / `DigestRule::Current` declines and misses the other length as `shm_foreign_digest`. Schemes without it, alexandria's `pixels` among them, are unchanged; the store never hashes a caller's key, and nothing the store imports reaches hashing code (tests in both languages).
