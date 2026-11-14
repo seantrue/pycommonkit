@@ -1,6 +1,8 @@
 #!/bin/sh
-# each_algo.sh CMD...: run CMD once per hash algorithm, md5 then b3, each in a fresh run folder
-# (the harness rule, D25 E): COMMONKIT_TEST_RUN holds an empty COMMONKIT_STORE_ROOT and a
+# each_algo.sh CMD...: run CMD once per hash algorithm in CK_ALGOS (default b3), each in a
+# fresh run folder. md5 is legacy, run only on demand (the maintainer, 2026-11-13: "Harness and
+# CI can run only b3; md5 to occur only on demand"): CK_ALGOS="md5" or CK_ALGOS="md5 b3".
+# The harness rule (D25 E): COMMONKIT_TEST_RUN holds an empty COMMONKIT_STORE_ROOT and a
 # COMMONKIT_MARK_DIR, and COMMONKIT_HASH names the algorithm. Fails when CMD fails, when it
 # leaves a bad-key or foreign-digest marker (contract §11), or unless every `<pid>.started`
 # marker names the algorithm and there is at least one (plan §3.1: each program says it
@@ -10,7 +12,7 @@
 # stores on tempfile roots outside the run. Used by CI; locally, plum's hf2_env.py does the
 # same.
 set -e
-for algo in md5 b3; do
+for algo in ${CK_ALGOS:-b3}; do
   run=$(mktemp -d "${TMPDIR:-/tmp}/ck-run.XXXXXX")
   mkdir "$run/store"
   echo "== $algo in $run: $*"

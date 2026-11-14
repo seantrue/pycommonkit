@@ -43,6 +43,18 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-13 — Fix: Rust `check_isolated` refused a root not yet made under a symlinked run (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked:** the bug, as reported from impressionist-rs ("Add this a bug: for commonkit in the local dev directory"; B1, issue #21), then "fix b1 now".
+
+**The defect, AI-written and shipped in 0.2.0.** `testing.rs` `real()` used `fs::canonicalize`, which fails on a path that doesn't exist, and fell back to the lexical `store::absolute`. On macOS the run folder from `mktemp -d` resolved to `/private/var/…` and a store root the harness hadn't created stayed `/var/…`, so the guard refused a root inside its run. Python's `testing` used `realpath` and passed, so the two implementations disagreed while the contract (§11, "doesn't resolve inside") was silent on how. The 0.2.0 guard tests only used roots `child::dirs()` had already made, and Linux CI has no symlinked temp folder, so nothing here caught it; impressionist-rs's `hash_is_what_was_asked` on the maintainer's Mac did.
+
+**What the AI did** (~20 LOC in `rust/commonkit/src/testing.rs`, ~28 in `tests/guard.rs`, ~17 in `tests/test_guard.py`, one sentence in the contract): `real()` resolves the deepest ancestor that exists and appends the rest, as `realpath`. A Rust test with a run behind a symlink and roots one and three levels short of existing; it failed without the fix with the reported message. The same test in Python, which passed before and after. Contract §11 now says paths resolve as POSIX `realpath`.
+
+**Checked under b3**, the algorithm that counts (the maintainer: "Test with b3 instead of md5 (deprecated). MD5 is strictly legacy/user."). **Investigated and ruled out.** The legacy md5 gate fails on this Mac with or without the change: `ck-conform`'s `digests_agree_with_python` and the `.started` check. Its Python child drops `COMMONKIT_STORE_*`, so it reads the live default root's `.policy.json` (`HASH` b3), which wins over `COMMONKIT_HASH`. Shown on unpatched `main`; recorded as B2 and closed as md5-specific on the maintainer's word ("Close B2 if it's md5 specific"). Under b3 both suites passed in full with clean markers (706 Python; every Rust target).
+
+**The harness runs b3 only.** The maintainer: "Harness and CI can run only b3; md5 to occur only on demand". `each_algo.sh` loops over `CK_ALGOS`, default `b3` (CI's nine steps unchanged, so they now run b3 alone); contract §11, README, `CLAUDE.md` and the CI comment updated. md5's own digest tests still run, in children they start themselves. Through the harness: 706 Python passed, 197 `.started` markers naming b3; every Rust target passed, 21 markers.
+
 ### 2026-11-12 — commonkit and pyuncommonkit 0.2.0 (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked:** "CPM L0" (PR #19, merged as `45db35b`), then "Go for 1,2": release 0.2.0, then start layer 1.

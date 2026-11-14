@@ -80,6 +80,34 @@ fn assert_isolated_passes_on_fresh_and_already_written_roots() {
     assert!(child::stdout(&o).contains("ISOLATED"));
 }
 
+/// Issue #21: on macOS `mktemp -d` is under `/var`, a symlink to `/private/var`, and a harness
+/// may name a root it hasn't created yet. The run folder resolved through the symlink and the
+/// missing root didn't, so the guard refused a root inside the run. Resolve as `realpath` does.
+#[cfg(unix)]
+#[test]
+fn assert_isolated_passes_on_a_root_not_yet_made_under_a_symlinked_run() {
+    let d = child::dirs();
+    let real = d.run.join("real");
+    std::fs::create_dir(&real).unwrap();
+    let link = d.run.join("link");
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    let run = link.to_string_lossy().into_owned();
+    for root in [link.join("store"), link.join("not/yet/store")] {
+        let root = root.to_string_lossy().into_owned();
+        let env = vec![
+            ("COMMONKIT_TEST_RUN", Some(run.as_str())),
+            ("COMMONKIT_STORE_ROOT", Some(root.as_str())),
+        ];
+        let o = child::run("child_checks_isolation", &d, Some("b3"), &env);
+        child::ok(&o);
+        assert!(
+            child::stdout(&o).contains("ISOLATED"),
+            "{root}: {}",
+            child::stdout(&o)
+        );
+    }
+}
+
 #[test]
 fn the_guard_sees_a_file_that_overrides_the_variable() {
     let d = child::dirs();

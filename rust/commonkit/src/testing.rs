@@ -12,8 +12,27 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// The variable naming the run folder the root must lie in.
 pub const RUN_ENV: &str = "COMMONKIT_TEST_RUN";
 
+/// `p` with symlinks resolved in the deepest part of it that exists and the rest appended, as
+/// Python's `os.path.realpath`. `canonicalize` alone fails on a root the harness hasn't made
+/// yet, and the lexical fallback left `/var` unresolved while the run folder became
+/// `/private/var`, so on macOS a root inside the run was refused (issue #21).
 fn real(p: &Path) -> PathBuf {
-    std::fs::canonicalize(p).unwrap_or_else(|_| crate::store::absolute(p).unwrap_or(p.into()))
+    let abs = crate::store::absolute(p).unwrap_or(p.into());
+    let mut base = abs.as_path();
+    let mut tail = Vec::new();
+    loop {
+        if let Ok(mut out) = std::fs::canonicalize(base) {
+            out.extend(tail.iter().rev());
+            return out;
+        }
+        match (base.parent(), base.file_name()) {
+            (Some(parent), Some(name)) => {
+                tail.push(name);
+                base = parent;
+            }
+            _ => return abs,
+        }
+    }
 }
 
 fn inside(child: &Path, parent: &Path) -> bool {

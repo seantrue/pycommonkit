@@ -134,9 +134,9 @@ key alone, which is what lets one store hold several domains.
 
 ## Tests
 
-    .github/each_algo.sh uv run --extra dev pytest -q   # both hash algorithms, fresh roots
+    .github/each_algo.sh uv run --extra dev pytest -q   # BLAKE3, fresh roots
 
-Every suite runs once per hash algorithm (md5, then BLAKE3), each on a fresh run folder
+Every suite runs under BLAKE3 (md5 is legacy, on demand with `CK_ALGOS="md5"`), on a fresh run folder
 (`COMMONKIT_TEST_RUN`, holding an empty `COMMONKIT_STORE_ROOT` and a `COMMONKIT_MARK_DIR`);
 on anything else the guard test fails. It is one failing test, not a stop: the rest of the
 suite still runs, so run it through the harness rather than from a shell pointed at a live

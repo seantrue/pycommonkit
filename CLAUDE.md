@@ -6,20 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The build backend is `uv_build`; dev tools are in the `dev` extra.
 
-Every suite runs once per hash algorithm on a fresh run folder (D25 E): `COMMONKIT_TEST_RUN`
+Every suite runs under b3 on a fresh run folder (D25 E): `COMMONKIT_TEST_RUN`
 holding an empty `COMMONKIT_STORE_ROOT` and a `COMMONKIT_MARK_DIR`, with `COMMONKIT_HASH` set.
 The guard tests (`tests/test_guard.py`, `rust/commonkit/tests/guard.rs`) fail otherwise. That
 is one failing test, not a stop: the rest of the suite still runs, so never run a suite from a
 shell whose `COMMONKIT_STORE_ROOT` points at a live tree (thresher's does).
-`.github/each_algo.sh CMD` runs CMD under md5 and then b3 that way, and fails on a stray
+`.github/each_algo.sh CMD` runs CMD that way under b3 (md5 is legacy, run only on demand:
+`CK_ALGOS="md5"` or `CK_ALGOS="md5 b3"`), and fails on a stray
 bad-key or foreign-digest marker, or unless every `<pid>.started` marker names the algorithm
 (and there is one). A test that must resolve another sends its markers to a scratch folder.
 On thresher plum's `claude-debug/hf2_env.py` does the same from an environment built from
 nothing.
 
 ```bash
-.github/each_algo.sh uv run --extra dev pytest -q              # full suite, both algorithms
-(cd rust && ../.github/each_algo.sh cargo test)                # Rust, both algorithms
+.github/each_algo.sh uv run --extra dev pytest -q              # full suite, b3
+(cd rust && ../.github/each_algo.sh cargo test)                # Rust, b3
 uv run --extra dev pytest tests/test_store.py::test_publish_then_attach_returns_the_same_samples
 uv run --extra dev ruff check .                                # line-length 100
 uv build                                                       # wheel + sdist (pyuncommonkit)

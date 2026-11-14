@@ -27,7 +27,7 @@ jobs:
           enable-cache: true
       # 3.11 is the floor the model venvs need; 3.13 is current. Two runs in one job, not a matrix.
       # The cross-language suite builds rust/ck-conform; it runs in the conformance job instead.
-      # Each suite runs once per hash algorithm on a fresh run folder (.github/each_algo.sh).
+      # Each suite runs under b3 on a fresh run folder (.github/each_algo.sh); md5 is legacy, on demand.
       - name: pytest (3.11)
         run: .github/each_algo.sh uv run --python 3.11 --extra dev pytest -q --ignore=tests/test_conformance.py
       - name: pytest (3.13)
