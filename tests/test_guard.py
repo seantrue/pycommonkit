@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import os
 
+import pytest
+
 from commonkit import policy, testing
 
 
@@ -53,6 +55,21 @@ def test_assert_isolated_still_refuses_under_python_O(child, tmp_path):
         assert p.stdout.startswith("refused:"), (env, p.stdout)
     p, _r, _m = child("import sys; print(sys.flags.optimize)", flags=("-O",))
     assert p.stdout.strip() == "1"
+
+
+@pytest.mark.skipif(not hasattr(os, "symlink") or os.name == "nt",
+                    reason="symlinks need privileges on Windows")
+def test_assert_isolated_passes_on_a_root_not_yet_made_under_a_symlinked_run(child, tmp_path):
+    # issue #21: macOS temp folders sit behind /var -> /private/var and a harness may name a
+    # root it hasn't made; Rust refused that before its fix, realpath here never did
+    real = tmp_path / "real"
+    real.mkdir()
+    link = tmp_path / "link"
+    link.symlink_to(real)
+    for root in (link / "store", link / "not" / "yet" / "store"):
+        env = {"COMMONKIT_TEST_RUN": str(link), "COMMONKIT_STORE_ROOT": str(root)}
+        p, _r, _m = child(GUARD, env=env)
+        assert p.stdout.strip() == "isolated", (root, p.stdout)
 
 
 def test_assert_isolated_passes_on_a_fresh_root_and_one_already_written(child):

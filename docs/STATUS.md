@@ -1,8 +1,10 @@
 # Status
 
-*Updated 2026-11-12.*
+*Updated 2026-11-13.*
 
 ## Where things stand
+
+- **Fix: Rust `testing::check_isolated` under a symlinked temp folder (2026-11-13, issue #21; unreleased).** impressionist-rs's guard test failed on macOS with commonkit 0.2.0: its harness names `$run/store` without creating it, `canonicalize` fails on a path that doesn't exist, and the lexical fallback left `/var` unresolved while the run folder became `/private/var`. `real()` now resolves the deepest existing ancestor and appends the rest, as Python's `realpath` always did; contract §11 says so. New tests in both languages (`guard.rs`, `test_guard.py`); the Rust one fails without the fix. **Mac, under b3** (md5 is legacy only, the maintainer: "Test with b3 instead of md5"): 706 Python and every Rust target passed, with all `.started` markers naming b3. The legacy md5 run's failures are on unpatched `main` too (B2, closed as md5-specific). **The harness and CI now run b3 only** (the maintainer: "Harness and CI can run only b3; md5 to occur only on demand"): `each_algo.sh` takes `CK_ALGOS` (default `b3`), and contract §11, README and `CLAUDE.md` say so. Through it, 706 Python passed with 197 `.started` markers naming b3, and every Rust target with 21. Clippy (all features, `-D warnings`), fmt and ruff clean. A 0.2.1 release and the bump in impressionist-rs wait for the maintainer.
 
 - **0.2.0, the hashing facade (2026-11-12, PR #19, merged `45db35b`; released to crates.io and PyPI, tags `commonkit-v0.2.0` and `pyuncommonkit-v0.2.0`).** Layer 0 of plum's plan `2026-11-12-commonkit-hash-facade` (the maintainer: "Go L0."). One system-wide hash switch for the virtimp stack, in commonkit, so no caller uses a hash library directly (D19):
   - `commonkit.digest` / `commonkit::digest` (feature `digest`): `raw`, `Hasher`, `nd1` (PlumCraft's protocol-2 recipe), `file`, `fixed` (md5, SHA-256) and `build` (both, for build scripts); contract §3.8.
