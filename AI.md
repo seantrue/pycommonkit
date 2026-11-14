@@ -43,6 +43,12 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-13 — commonkit and pyuncommonkit 0.2.1 (Claude Opus 5.5, Claude Code)
+
+**What the maintainer asked:** "Add BUGS.md and release", then, asked how, "CPM, then publish".
+
+**What the AI did:** bumped both manifests and lockfiles to 0.2.1 (patch) in the fix commit `56cadf9`, opened PR #22, which CI passed (python, rust, msrv, conformance; b3 only), and merged it as `3adf682`. Released from a clean worktree at `main` `3adf682`, after the merge, as 0.1.1 and 0.2.0 were. Gates: 0.2.1 was free on crates.io, PyPI and as a tag; `cargo publish --dry-run --locked` and `twine check` passed; the wheel built at `main` has the same `testing.py` as the one built on the branch. Smoke test: the branch wheel installed into a fresh Python 3.13 venv, reported 0.2.1, and its BLAKE3 of `b"abc"` starts `6437b3`, the reference digest. Published `commonkit` 0.2.1 to crates.io and `pyuncommonkit` 0.2.1 to PyPI (wheel 44,637 bytes, sdist 39,382); tags `commonkit-v0.2.1` and `pyuncommonkit-v0.2.1` on `3adf682`. Not run on Windows or Linux beyond CI. impressionist-rs still pins 0.2.0.
+
 ### 2026-11-13 — Fix: Rust `check_isolated` refused a root not yet made under a symlinked run (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked:** the bug, as reported from impressionist-rs ("Add this a bug: for commonkit in the local dev directory"; B1, issue #21), then "fix b1 now".
