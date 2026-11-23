@@ -741,6 +741,58 @@ def reaper_doc() -> dict:
                reap={"ttl_s": 3600, "max_bytes": 2 ** 40, "min_free_bytes": 0})
 
 
+# --------------------------------------------------------------------------- prune
+
+PRUNE_NAME = "n2-0123456789abcdef.png"
+
+
+def prune_doc() -> dict:
+    """``prune_folder``'s decisions, written out by hand (not computed): each vector is a folder
+    holding ``entries`` (each aged ``age_s``; ``owned: false`` is one the owner check disclaims),
+    pruned with the shared options and ``keep``."""
+    vectors = []
+    old, young = 2 * 86400, 600
+
+    def pv(id_, entries, expect, keep=(), note=None):
+        rec = {"id": id_, "entries": entries, "keep": list(keep), "expect": expect}
+        if note:
+            rec["note"] = note
+        vectors.append(rec)
+
+    def f(name, age_s=old, kind="file", owned=True):
+        e = {"name": name, "kind": kind, "age_s": age_s}
+        if not owned:
+            e["owned"] = False
+        return e
+
+    def ex(removed=(), kept=0, young=0, foreign=0):
+        return {"removed": sorted(removed), "kept": kept, "young": young, "foreign": foreign}
+
+    n, side = PRUNE_NAME, PRUNE_NAME + ".json"
+    pv("unreachable_old", [f(n), f(side)], ex([n, side]), note="its companion goes with it")
+    pv("no_companion", [f(n)], ex([n]))
+    pv("reachable", [f(n), f(side)], ex(kept=1), keep=[n])
+    pv("young", [f(n, young), f(side, young)], ex(young=1))
+    pv("not_ours", [f(n, owned=False), f(side)], ex(foreign=1),
+       note="the owner check disclaims it: kept, and so is its companion")
+    pv("wrong_name", [f("n2-0123.png"), f("notes.txt"), f(".n2-0123456789abcdef.png")],
+       ex(foreign=3), note="only names matching the whole pattern are candidates")
+    pv("symlink", [f(n, kind="symlink")], ex(foreign=1),
+       note="lstat: a symbolic link is not a regular file, and is never followed")
+    pv("directory", [f(n, kind="dir")], ex(foreign=1))
+    pv("companion_alone", [f(side)], ex(foreign=1),
+       note="a companion with no candidate beside it is just another file")
+    pv("mixed", [f("a1-0000000000000001.png"), f("a1-0000000000000001.png.json"),
+                 f("a1-0000000000000002.png"), f("a1-0000000000000003.png", young),
+                 f("b2-00000000000000ff.png", owned=False), f("readme.md")],
+       ex(["a1-0000000000000001.png", "a1-0000000000000001.png.json"], kept=1, young=1, foreign=2),
+       keep=["a1-0000000000000002.png"])
+    return doc("prune", "Which files prune_folder removes from a folder. Each vector is a folder "
+               "holding its entries, pruned with the options below and the vector's keep",
+               vectors, prune={"pattern": r"[a-z0-9]+-[0-9a-f]{16}\.png", "companions": [".json"],
+                               "min_age_s": 86400})
+
+
 # --------------------------------------------------------------------------- policy
 
 DEFAULT_EXPECT = {"ttl_s": 900.0, "reap_interval_s": 30.0, "min_free_bytes": 8 * 2 ** 30,
@@ -992,6 +1044,7 @@ def main() -> int:
     w.json("env.json", env_doc())
     w.json("policy.json", policy_doc(w))
     w.json("digests.json", digests_doc())
+    w.json("prune.json", prune_doc())
     print(f"wrote {w.bytes} bytes under {OUT.relative_to(HERE.parent)}", file=sys.stderr)
     if w.bytes > 512 * 1024:
         print("fixtures exceed 512 KiB; keep them small", file=sys.stderr)

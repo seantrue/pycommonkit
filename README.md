@@ -113,6 +113,14 @@ its bytes; there is no in-use check.
 durable copy somewhere you own and use the store to share it fast. (A pinned
 subtree the reaper skips is a possible later addition; it isn't built.)
 
+**Pruning a folder of your own (not the store).** `commonkit.prune.prune_folder` (Rust:
+`commonkit::prune_folder`) removes the files in a folder an application keeps that nothing refers
+to: a regular file whose whole name matches a pattern, that an optional owner check claims, that
+isn't in the names the application says are reachable, and that is older than an age floor; its
+companions (`<name>.json`, …) go with it. It never descends or follows a symbolic link, never
+fails for a file it meets, and a dry run (the default in Python) only lists. Both languages are
+checked by `conformance/vectors/prune.json`.
+
 **Callers never need `.usage.json`.** It is the reaper's record of how much the
 tree holds, read only by the byte-budget gate. When it is missing or stale,
 usage is unknown, that gate passes, and the free-space floor still applies;

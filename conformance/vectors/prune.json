@@ -1,0 +1,258 @@
+{
+ "contract": 1,
+ "category": "prune",
+ "about": "Which files prune_folder removes from a folder. Each vector is a folder holding its entries, pruned with the options below and the vector's keep",
+ "prune": {
+  "pattern": "[a-z0-9]+-[0-9a-f]{16}\\.png",
+  "companions": [
+   ".json"
+  ],
+  "min_age_s": 86400
+ },
+ "vectors": [
+  {
+   "id": "unreachable_old",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": "n2-0123456789abcdef.png.json",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [
+     "n2-0123456789abcdef.png",
+     "n2-0123456789abcdef.png.json"
+    ],
+    "kept": 0,
+    "young": 0,
+    "foreign": 0
+   },
+   "note": "its companion goes with it"
+  },
+  {
+   "id": "no_companion",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [
+     "n2-0123456789abcdef.png"
+    ],
+    "kept": 0,
+    "young": 0,
+    "foreign": 0
+   }
+  },
+  {
+   "id": "reachable",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": "n2-0123456789abcdef.png.json",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [
+    "n2-0123456789abcdef.png"
+   ],
+   "expect": {
+    "removed": [],
+    "kept": 1,
+    "young": 0,
+    "foreign": 0
+   }
+  },
+  {
+   "id": "young",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "file",
+     "age_s": 600
+    },
+    {
+     "name": "n2-0123456789abcdef.png.json",
+     "kind": "file",
+     "age_s": 600
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [],
+    "kept": 0,
+    "young": 1,
+    "foreign": 0
+   }
+  },
+  {
+   "id": "not_ours",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "file",
+     "age_s": 172800,
+     "owned": false
+    },
+    {
+     "name": "n2-0123456789abcdef.png.json",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [],
+    "kept": 0,
+    "young": 0,
+    "foreign": 1
+   },
+   "note": "the owner check disclaims it: kept, and so is its companion"
+  },
+  {
+   "id": "wrong_name",
+   "entries": [
+    {
+     "name": "n2-0123.png",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": "notes.txt",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": ".n2-0123456789abcdef.png",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [],
+    "kept": 0,
+    "young": 0,
+    "foreign": 3
+   },
+   "note": "only names matching the whole pattern are candidates"
+  },
+  {
+   "id": "symlink",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "symlink",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [],
+    "kept": 0,
+    "young": 0,
+    "foreign": 1
+   },
+   "note": "lstat: a symbolic link is not a regular file, and is never followed"
+  },
+  {
+   "id": "directory",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png",
+     "kind": "dir",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [],
+    "kept": 0,
+    "young": 0,
+    "foreign": 1
+   }
+  },
+  {
+   "id": "companion_alone",
+   "entries": [
+    {
+     "name": "n2-0123456789abcdef.png.json",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [],
+   "expect": {
+    "removed": [],
+    "kept": 0,
+    "young": 0,
+    "foreign": 1
+   },
+   "note": "a companion with no candidate beside it is just another file"
+  },
+  {
+   "id": "mixed",
+   "entries": [
+    {
+     "name": "a1-0000000000000001.png",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": "a1-0000000000000001.png.json",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": "a1-0000000000000002.png",
+     "kind": "file",
+     "age_s": 172800
+    },
+    {
+     "name": "a1-0000000000000003.png",
+     "kind": "file",
+     "age_s": 600
+    },
+    {
+     "name": "b2-00000000000000ff.png",
+     "kind": "file",
+     "age_s": 172800,
+     "owned": false
+    },
+    {
+     "name": "readme.md",
+     "kind": "file",
+     "age_s": 172800
+    }
+   ],
+   "keep": [
+    "a1-0000000000000002.png"
+   ],
+   "expect": {
+    "removed": [
+     "a1-0000000000000001.png",
+     "a1-0000000000000001.png.json"
+    ],
+    "kept": 1,
+    "young": 1,
+    "foreign": 2
+   }
+  }
+ ]
+}
