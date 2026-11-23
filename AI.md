@@ -43,6 +43,16 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-23 — commonkit and pyuncommonkit 0.3.0 (Claude Fable 5.2, Claude Code)
+
+**What the maintainer asked:** "Release commonkit".
+
+**What the AI did:** released from a clean worktree at `main` `b4e5ae2`, after PR #24 merged with CI passing (python, rust, msrv, conformance), as 0.2.1 was. Gates: 0.3.0 was free on crates.io, PyPI and as a tag; `cargo publish --dry-run --locked` and `twine check` passed; the wheel, installed in a fresh environment, reported 0.3.0 and pruned a scratch folder correctly, first as a dry run and then for real. Published `commonkit` 0.3.0 to crates.io and `pyuncommonkit` 0.3.0 (wheel and sdist) to PyPI; tagged and pushed `commonkit-v0.3.0` and `pyuncommonkit-v0.3.0`.
+
+**Chosen by the AI, not the maintainer:** the minor bump. The AI said before publishing that the maintainer had not reviewed `prune_folder`'s code and that a published version cannot be replaced; no answer came before CI finished, and it published on the standing request.
+
+**Not checked:** the wheel on Windows or Linux by hand (CI ran the tests on Linux); the published crate built from crates.io by a consumer.
+
 ### 2026-11-23 — 0.3.0: `prune_folder`, pruning an application's own folder (Claude Opus 5.5 agent wrote it; Claude Fable 5.2 reviewed and released it, Claude Code)
 
 **What the maintainer asked:** deciding how PlumCraft should clean up old mask files, "5B "Commonkit?"", then, asked which they meant, "Ref commonkit -- both", then "Release commonkit".
