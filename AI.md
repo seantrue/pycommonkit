@@ -43,6 +43,16 @@ inside a non-public application first.
 
 ## Contributions
 
+### 2026-11-23 — 0.3.0: `prune_folder`, pruning an application's own folder (Claude Opus 5.5 agent wrote it; Claude Fable 5.2 reviewed and released it, Claude Code)
+
+**What the maintainer asked:** deciding how PlumCraft should clean up old mask files, "5B "Commonkit?"", then, asked which they meant, "Ref commonkit -- both", then "Release commonkit".
+
+**What the AI did:** found that nothing here prunes by reachability (the reaper evicts by age, size and free space; pinning is a reserved name only), and wrote `prune_folder` in both languages with shared vectors: Python `src/commonkit/prune.py` (~110 LOC), Rust `rust/commonkit/src/prune.rs` (~160 LOC), tests in both (~235 LOC), `conformance/vectors/prune.json` from `conformance/generate.py`, a README section. It is outside the store and changes nothing in the contract. It removes files, so it is conservative: one folder's own entries only, regular files only by `lstat`, whole-name pattern match, an optional owner check whose failure claims nothing, an age floor, a dry run by default in Python, and a failed delete is counted, not raised.
+
+**Not from the maintainer:** the function's shape and its name are the AI's; the maintainer has not reviewed the code. The version, 0.3.0 (minor, for new public API), is the AI's choice.
+
+**Checked before the pull request (local, isolated run folders):** pytest 709 passed; ruff clean; the vector generator reproduces every existing vector file and adds `prune.json`; `cargo fmt`, clippy with all and with no default features, `cargo test` the same two ways, `cargo doc` with warnings denied, and `cargo publish --dry-run --locked`. Every prune in the tests runs in a temporary folder. What was published, and from which commit, is the next entry.
+
 ### 2026-11-13 — commonkit and pyuncommonkit 0.2.1 (Claude Opus 5.5, Claude Code)
 
 **What the maintainer asked:** "Add BUGS.md and release", then, asked how, "CPM, then publish".

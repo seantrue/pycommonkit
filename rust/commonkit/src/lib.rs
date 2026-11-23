@@ -53,6 +53,7 @@ mod map;
 mod marks;
 pub mod npy;
 pub mod policy;
+pub mod prune;
 pub mod segment;
 pub mod store;
 mod sys;
@@ -62,6 +63,7 @@ pub mod testing;
 pub use keys::{DigestRule, Key, KeyError, KeyScheme, Registry, Variants};
 pub use npy::{Descr, Order};
 pub use policy::{Algo, Policy, shared_store, shared_store_at};
+pub use prune::{PruneOptions, PruneReport, prune_folder};
 pub use segment::{AttachMode, Element, Scalar, Segment};
 pub use store::{
     ArrayRef, Counter, KeyCollision, Mode, Options, ReapOptions, ReapReport, Stats, Store, Usage,
